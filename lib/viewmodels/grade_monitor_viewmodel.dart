@@ -36,13 +36,20 @@ class GradeMonitorViewModel extends ChangeNotifier {
     }
 
     _service = GradeMonitorService(fnum: fnum, egn: egn);
-    
-    // Initial check
+
+    // 1. Initial check (immediate)
     await _service?.checkOnce();
-    
-    // Run every 30 minutes (or as appropriate)
-    _timer = Timer.periodic(const Duration(minutes: 30), (timer) {
+
+    // 2. Schedule the next check at the next :00 or :30 mark
+    Duration delay = _service!.timeUntilNextHalfHour();
+    _timer = Timer(delay, () {
       _service?.checkOnce();
+      
+      // 3. From then on, check every 30 minutes
+      _timer?.cancel();
+      _timer = Timer.periodic(const Duration(minutes: 30), (timer) {
+        _service?.checkOnce();
+      });
     });
 
     return true;

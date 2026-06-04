@@ -54,7 +54,7 @@ class GradeMonitorService {
         );
       } else {
         _lastGradeCount = currentCount;
-        Duration next = _timeUntilNextHalfHour();
+        Duration next = timeUntilNextHalfHour();
         String nextTime = DateFormat('HH:mm').format(DateTime.now().add(next));
         
         NotificationService.showPersistent(
@@ -74,7 +74,7 @@ class GradeMonitorService {
     }
   }
 
-  Duration _timeUntilNextHalfHour() {
+  Duration timeUntilNextHalfHour() {
     DateTime now = DateTime.now();
     int nextMinute = now.minute < 30 ? 30 : 60;
     DateTime next = DateTime(now.year, now.month, now.day, now.hour, 0)

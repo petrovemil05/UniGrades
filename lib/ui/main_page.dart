@@ -21,6 +21,7 @@ class _MainPageState extends State<MainPage> {
   final TextEditingController _egnController = TextEditingController();
 
   List<GradeItem>? _grades;
+  AverageResult? _averageResult;
   bool _isLoading = false;
   bool _isLoggedIn = false;
 
@@ -71,6 +72,7 @@ class _MainPageState extends State<MainPage> {
     setState(() {
       _isLoggedIn = false;
       _grades = null;
+      _averageResult = null;
       _fnumController.clear();
       _egnController.clear();
     });
@@ -89,6 +91,7 @@ class _MainPageState extends State<MainPage> {
       var result = _parser.parse(html);
       setState(() {
         _grades = result;
+        _averageResult = _parser.calculateAverage(result);
       });
     } catch (e) {
       if (mounted) {
@@ -129,9 +132,10 @@ class _MainPageState extends State<MainPage> {
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
-        title: const Text("e-student TU-Sofia"),
+        title: const Text("e-university ТУ-София"),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        centerTitle: true,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(15),
@@ -150,12 +154,55 @@ class _MainPageState extends State<MainPage> {
             if (_isLoggedIn) ...[
               _buildActions(),
               const SizedBox(height: 15),
+              if (_averageResult != null) ...[
+                _buildAverageBadge(),
+                const SizedBox(height: 15),
+              ],
               if (_isLoading)
                 const CircularProgressIndicator(color: Colors.white),
               if (_grades != null) _buildGradesList(),
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildAverageBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2ECC71).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: const Color(0xFF2ECC71), width: 2),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.analytics, color: Color(0xFF2ECC71)),
+              const SizedBox(width: 10),
+              Text(
+                "Среден успех: ${_averageResult!.average.toStringAsFixed(2)}",
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            "${_averageResult!.semesterLabels.join(' и ')}",
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.7),
+              fontSize: 12,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -170,7 +217,7 @@ class _MainPageState extends State<MainPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              "Login",
+              "Вход",
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 18,
@@ -239,7 +286,7 @@ class _MainPageState extends State<MainPage> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    child: const Text("Refresh",
+                    child: const Text("Обнови",
                         style: TextStyle(color: Colors.white)),
                   ),
                 ),
@@ -253,7 +300,7 @@ class _MainPageState extends State<MainPage> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    child: const Text("Logout",
+                    child: const Text("Изход",
                         style: TextStyle(color: Colors.white)),
                   ),
                 ),

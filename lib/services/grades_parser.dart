@@ -1,6 +1,13 @@
 import 'package:html_unescape/html_unescape.dart';
 import '../models/grade_item.dart';
 
+class AverageResult {
+  final double average;
+  final List<String> semesterLabels;
+
+  AverageResult({required this.average, required this.semesterLabels});
+}
+
 class GradesParser {
   final unescape = HtmlUnescape();
 
@@ -97,5 +104,73 @@ class GradesParser {
     }
 
     return finalList;
+  }
+
+  AverageResult? calculateAverage(List<GradeItem> allGrades) {
+    List<Map<String, dynamic>> semesters = [];
+    List<GradeItem>? currentSemesterGrades;
+    String currentSemesterLabel = "";
+
+    for (var item in allGrades) {
+      if (item.isSemester) {
+        currentSemesterGrades = [];
+        currentSemesterLabel = item.grade.replaceAll("==", "").trim();
+        semesters.add({
+          'label': currentSemesterLabel,
+          'grades': currentSemesterGrades,
+        });
+      } else {
+        currentSemesterGrades?.add(item);
+      }
+    }
+
+    List<Map<String, dynamic>> validSemesters = [];
+    final gradeValuePattern = RegExp(r'\((\d)\)');
+
+    for (var sem in semesters) {
+      List<double> numericGrades = [];
+      List<GradeItem> items = sem['grades'];
+      for (var item in items) {
+        if (item.grade.contains("Няма оценка") || item.grade.contains("Зачита се")) {
+          continue;
+        }
+        
+        var match = gradeValuePattern.firstMatch(item.grade);
+        if (match != null) {
+          double val = double.parse(match.group(1)!);
+          if (val > 1) { 
+            numericGrades.add(val);
+          }
+        }
+      }
+      
+      if (numericGrades.isNotEmpty) {
+        validSemesters.add({
+          'label': sem['label'],
+          'numericGrades': numericGrades,
+        });
+      }
+    }
+
+    if (validSemesters.isEmpty) return null;
+
+    List<double> gradesToAverage = [];
+    List<String> labelsUsed = [];
+    int semestersCounted = 0;
+
+    for (var sem in validSemesters) {
+      gradesToAverage.addAll(sem['numericGrades'] as List<double>);
+      labelsUsed.add(sem['label'] as String);
+      semestersCounted++;
+      if (semestersCounted == 2) break;
+    }
+
+    if (gradesToAverage.isEmpty) return null;
+
+    double sum = gradesToAverage.reduce((a, b) => a + b);
+    return AverageResult(
+      average: sum / gradesToAverage.length,
+      semesterLabels: labelsUsed,
+    );
   }
 }

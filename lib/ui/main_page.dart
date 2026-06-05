@@ -307,10 +307,6 @@ class _MainPageState extends State<MainPage> {
               ],
             ),
             const SizedBox(height: 10),
-            ElevatedButton(
-              onPressed: () => NotificationService.showTestNotification(),
-              child: const Text("Тестово известие"),
-            ),
             const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,

@@ -11,7 +11,6 @@ class NotificationService {
   static Future<void> init() async {
     if (_isInitialized) return;
 
-    // Using '@mipmap/icon' as it is a valid large file in your project
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/icon');
 
@@ -24,13 +23,14 @@ class NotificationService {
         onDidReceiveNotificationResponse: (NotificationResponse response) async {
           if (response.actionId == 'check_now') {
             FlutterBackgroundService().invoke('checkNow');
+          } else if (response.actionId == 'stop_monitoring') {
+            FlutterBackgroundService().invoke('stopService');
           }
         },
       ).timeout(const Duration(seconds: 3));
 
       final androidPlugin = _notificationsPlugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
       if (androidPlugin != null) {
-        debugPrint("Creating notification channels...");
         await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
           'grade_monitor_channel',
           'Следене на оценки',
@@ -49,17 +49,8 @@ class NotificationService {
           playSound: true,
           enableVibration: true,
         ));
-
-        // Adding a basic test channel
-        await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
-          'test_channel',
-          'Тестови известия',
-          description: 'Канал за тестване на известия',
-          importance: Importance.high,
-        ));
       }
       _isInitialized = true;
-      debugPrint("NotificationService initialized successfully");
     } catch (e) {
       debugPrint("NotificationService.init error: $e");
     }
@@ -78,24 +69,6 @@ class NotificationService {
     }
   }
 
-  static Future<void> showTestNotification() async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
-        AndroidNotificationDetails(
-      'test_channel',
-      'Тестови известия',
-      importance: Importance.high,
-      priority: Priority.high,
-      showWhen: true,
-    );
-
-    await _notificationsPlugin.show(
-      id: 999,
-      title: 'Тест',
-      body: 'Това е тестово известие',
-      notificationDetails: const NotificationDetails(android: androidPlatformChannelSpecifics),
-    );
-  }
-
   static Future<void> showPersistent(int id, String title, String body) async {
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
@@ -111,6 +84,11 @@ class NotificationService {
         AndroidNotificationAction(
           'check_now',
           'Провери сега',
+          showsUserInterface: false,
+        ),
+        AndroidNotificationAction(
+          'stop_monitoring',
+          'Спри',
           showsUserInterface: false,
         ),
       ],

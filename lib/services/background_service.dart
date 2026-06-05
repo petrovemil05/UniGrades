@@ -16,8 +16,8 @@ class BackgroundService {
         autoStart: false,
         isForegroundMode: true,
         notificationChannelId: 'grade_monitor_channel',
-        initialNotificationTitle: 'e-student Monitor',
-        initialNotificationContent: 'Стартиране на услугата...',
+        initialNotificationTitle: 'Следене на оценки',
+        initialNotificationContent: 'Стартиране...',
         foregroundServiceNotificationId: GradeMonitorService.persistentNotifId,
       ),
       iosConfiguration: IosConfiguration(
@@ -27,76 +27,79 @@ class BackgroundService {
       ),
     );
   }
+}
 
-  @pragma('vm:entry-point')
-  static void onStart(ServiceInstance service) async {
-    DartPluginRegistrant.ensureInitialized();
-    debugPrint("BackgroundService.onStart triggered");
+@pragma('vm:entry-point')
+void onStart(ServiceInstance service) async {
+  DartPluginRegistrant.ensureInitialized();
 
-    void updateStatus(String title, String body) {
-      if (service is AndroidServiceInstance) {
-        service.setForegroundNotificationInfo(
-          title: title,
-          content: body,
-        );
-      }
+  bool isRunning = true;
+
+  // Use NotificationService directly to ensure buttons (actions) are preserved
+  void updateStatus(String title, String body) {
+    NotificationService.showPersistent(
+      GradeMonitorService.persistentNotifId,
+      title,
+      body,
+    );
+  }
+
+  try {
+    // 1. Initial setup
+    await NotificationService.init().timeout(
+      const Duration(seconds: 5),
+      onTimeout: () => debugPrint("Notification init timeout in background"),
+    );
+
+    final prefs = await SharedPreferences.getInstance();
+    String fnum = prefs.getString("fnum") ?? "";
+    String egn = prefs.getString("egn") ?? "";
+
+    if (fnum.isEmpty || egn.isEmpty) {
+      updateStatus("Грешка", "Липсват данни за вход.");
+      service.stopSelf();
+      return;
     }
 
-    try {
-      // First, establish a stable state
-      updateStatus("e-student Monitor", "Зареждане...");
+    service.on('stopService').listen((event) {
+      isRunning = false;
+      service.stopSelf();
+      NotificationService.cancel(GradeMonitorService.persistentNotifId);
+    });
 
-      // Init notifications with timeout to prevent hang
-      await NotificationService.init().timeout(
-        const Duration(seconds: 5),
-        onTimeout: () => debugPrint("Notification init timed out in background"),
-      );
+    final monitor = GradeMonitorService(
+      fnum: fnum,
+      egn: egn,
+      onStatusUpdate: (title, body) => updateStatus(title, body),
+    );
 
-      final prefs = await SharedPreferences.getInstance();
-      String fnum = prefs.getString("fnum") ?? "";
-      String egn = prefs.getString("egn") ?? "";
-
-      if (fnum.isEmpty || egn.isEmpty) {
-        updateStatus("e-student Monitor", "Грешка: Няма данни за вход.");
-        await Future.delayed(const Duration(seconds: 5));
-        service.stopSelf();
-        return;
-      }
-
-      service.on('stopService').listen((event) {
-        service.stopSelf();
-      });
-
-      final monitor = GradeMonitorService(
-        fnum: fnum,
-        egn: egn,
-        onStatusUpdate: (title, body) => updateStatus(title, body),
-      );
-
-      service.on('checkNow').listen((event) async {
-        debugPrint("Manual check triggered via notification");
-        await monitor.checkOnce();
-      });
-
-      // Perform initial check
+    service.on('checkNow').listen((event) async {
       await monitor.checkOnce();
+    });
 
-      // Setup periodic checks at round hours
-      void scheduleNext() {
+    // 1. Initial check
+    await monitor.checkOnce();
+
+    // 2. Monitoring loop
+    while (isRunning) {
+      try {
         Duration delay = monitor.timeUntilNextHalfHour();
-        debugPrint("Next check scheduled in ${delay.inMinutes} minutes");
-        Timer(delay, () async {
-          await monitor.checkOnce();
-          scheduleNext();
-        });
+        debugPrint("Next automatic check in ${delay.inMinutes} minutes");
+        
+        // Wait until next interval (00 or 30)
+        await Future.delayed(delay);
+
+        if (!isRunning) break;
+
+        // Perform check
+        await monitor.checkOnce();
+      } catch (e) {
+        debugPrint("Loop error: $e");
+        await Future.delayed(const Duration(minutes: 1));
       }
-
-      scheduleNext();
-
-    } catch (e, stack) {
-      debugPrint("Kriticheska greshka v background service: $e");
-      debugPrint(stack.toString());
-      updateStatus("e-student Monitor", "Грешка при работа: $e");
     }
+
+  } catch (e) {
+    updateStatus("Грешка при работа", e.toString());
   }
 }

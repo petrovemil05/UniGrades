@@ -1,76 +1,93 @@
 import 'dart:async';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'tu_api_service.dart';
 import 'notification_service.dart';
 
 class GradeMonitorService {
-  int _lastGradeCount = -1;
   final String fnum;
   final String egn;
   final TuApiService _api = TuApiService();
+  
+  // Callback to update status without relying on NotificationService
+  final Function(String title, String body)? onStatusUpdate;
 
   static const int persistentNotifId = 1001;
   static const int gradeAlertNotifId = 1002;
+  static const String _prefLastCountKey = "last_grade_count";
 
-  GradeMonitorService({required this.fnum, required this.egn});
+  GradeMonitorService({
+    required this.fnum, 
+    required this.egn,
+    this.onStatusUpdate,
+  });
 
   Future<void> checkOnce() async {
     try {
       await _checkGrades();
     } catch (e) {
-      NotificationService.showAlert(gradeAlertNotifId, "Грешка при проверка", e.toString());
+      _updateStatus("❌ Грешка при проверка", e.toString());
+      try {
+        NotificationService.showAlert(gradeAlertNotifId, "Грешка при проверка", e.toString());
+      } catch (_) {}
+    }
+  }
+
+  void _updateStatus(String title, String body) {
+    if (onStatusUpdate != null) {
+      onStatusUpdate!(title, body);
+    } else {
+      NotificationService.showPersistent(persistentNotifId, title, body);
     }
   }
 
   Future<void> _checkGrades() async {
     try {
       String time = DateFormat('HH:mm:ss').format(DateTime.now());
-      NotificationService.showPersistent(persistentNotifId, "⏳ Проверявам…", time);
+      _updateStatus("⏳ Проверявам…", time);
+
+      final prefs = await SharedPreferences.getInstance();
+      int lastGradeCount = prefs.getInt(_prefLastCountKey) ?? -1;
 
       String html = await _api.getHtmlAsync(fnum, egn);
       int currentCount = _countOtsenka(html);
 
-      if (_lastGradeCount == -1) {
-        _lastGradeCount = currentCount;
-        NotificationService.showPersistent(
-          persistentNotifId,
+      if (lastGradeCount == -1) {
+        await prefs.setInt(_prefLastCountKey, currentCount);
+        _updateStatus(
           "✅ Активно следене",
           "Първа проверка: $time | Оценки: $currentCount",
         );
-      } else if (currentCount > _lastGradeCount) {
-        int newGrades = currentCount - _lastGradeCount;
-        int previousCount = _lastGradeCount;
-        _lastGradeCount = currentCount;
+      } else if (currentCount > lastGradeCount) {
+        int newGrades = currentCount - lastGradeCount;
+        int previousCount = lastGradeCount;
+        await prefs.setInt(_prefLastCountKey, currentCount);
         
         String alertBody = newGrades == 1
             ? "Получихте нова оценка в e-university!"
             : "Получихте $newGrades нови оценки в e-university!";
             
-        NotificationService.showAlert(gradeAlertNotifId, "🎓 Нова оценка!", alertBody);
-        NotificationService.showPersistent(
-          persistentNotifId,
+        _updateStatus(
           "🎓 Нова оценка засечена!",
           "$time | Беше: $previousCount → Сега: $currentCount",
         );
+        
+        try {
+          NotificationService.showAlert(gradeAlertNotifId, "🎓 Нова оценка!", alertBody);
+        } catch (_) {}
       } else {
-        _lastGradeCount = currentCount;
+        await prefs.setInt(_prefLastCountKey, currentCount);
         Duration next = timeUntilNextHalfHour();
         String nextTime = DateFormat('HH:mm').format(DateTime.now().add(next));
         
-        NotificationService.showPersistent(
-          persistentNotifId,
+        _updateStatus(
           "✅ Няма промяна",
           "Проверено: $time | Оценки: $currentCount | Следваща: $nextTime",
         );
       }
     } catch (e) {
       String time = DateFormat('HH:mm:ss').format(DateTime.now());
-      NotificationService.showPersistent(
-        persistentNotifId,
-        "❌ Грешка при проверка",
-        "$time | $e",
-      );
-      NotificationService.showAlert(gradeAlertNotifId, "Грешка при проверка", e.toString());
+      _updateStatus("❌ Грешка при проверка", "$time | $e");
     }
   }
 

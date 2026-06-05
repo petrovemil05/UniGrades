@@ -172,7 +172,7 @@ class _MainPageState extends State<MainPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF2ECC71).withOpacity(0.1),
+        color: const Color(0xFF2ECC71).withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(15),
         border: Border.all(color: const Color(0xFF2ECC71), width: 2),
       ),
@@ -195,9 +195,9 @@ class _MainPageState extends State<MainPage> {
           ),
           const SizedBox(height: 4),
           Text(
-            "${_averageResult!.semesterLabels.join(' и ')}",
+            _averageResult!.semesterLabels.join(' и '),
             style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withValues(alpha: 0.7),
               fontSize: 12,
               fontStyle: FontStyle.italic,
             ),
@@ -305,6 +305,11 @@ class _MainPageState extends State<MainPage> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: () => NotificationService.showTestNotification(),
+              child: const Text("Тестово известие"),
             ),
             const SizedBox(height: 10),
             SizedBox(

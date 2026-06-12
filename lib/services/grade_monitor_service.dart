@@ -93,25 +93,14 @@ class GradeMonitorService {
     }
   }
 
-  /// Returns the delay until the next :00 or :30 mark, plus a random jitter
-  /// of ±2 minutes (±120 seconds) so the exact hit time varies each cycle.
+  /// Returns 30 minutes plus a random jitter of ±2 minutes (±120 seconds).
+  /// Anchoring to wall-clock :00/:30 boundaries caused double-fires when a
+  /// negative jitter fired early — the next call would immediately target the
+  /// same boundary again. A fixed 30-minute base avoids that entirely.
   Duration timeUntilNextHalfHour() {
-    final now = DateTime.now();
-    final int nextMinute = now.minute < 30 ? 30 : 60;
-    DateTime next = DateTime(now.year, now.month, now.day, now.hour, 0)
-        .add(Duration(minutes: nextMinute));
-    if (!next.isAfter(now)) {
-      next = next.add(const Duration(hours: 1));
-    }
-
-    // Jitter: random value in [-120, +120] seconds
-    final int jitterSeconds = _rng.nextInt(241) - 120; // 0..240 → -120..+120
-    final Duration jitter = Duration(seconds: jitterSeconds);
-    final Duration base = next.difference(now);
-
-    // Guard: never return a negative delay (e.g. jitter lands us in the past)
-    final Duration result = base + jitter;
-    return result.isNegative ? Duration.zero : result;
+    const int baseSeconds = 30 * 60; // 1800
+    final int jitterSeconds = _rng.nextInt(241) - 120; // −120..+120
+    return Duration(seconds: baseSeconds + jitterSeconds);
   }
 
   int _countOtsenka(String html) {

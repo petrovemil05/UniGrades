@@ -9,7 +9,7 @@ import '../models/update_info.dart';
 import 'dart:convert';
 
 class UpdateService {
-  static const String _versionUrl = 'https://raw.githubusercontent.com/petrovemil05/e_student/master/version.json';
+  static const String _versionUrl = 'https://jnshort.com/version';
 
   static Future<UpdateInfo?> checkForUpdate() async {
     try {

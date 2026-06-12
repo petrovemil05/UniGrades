@@ -27,12 +27,91 @@ class _MainPageState extends State<MainPage> {
   bool _isLoading = false;
   bool _isLoggedIn = false;
 
+  static const String _prefDisclaimerKey = "disclaimer_accepted";
+
   @override
   void initState() {
     super.initState();
     _checkLogin();
     NotificationService.requestPermissions();
     _checkForUpdates();
+    _showDisclaimerIfNeeded();
+  }
+
+  Future<void> _showDisclaimerIfNeeded() async {
+    final prefs = await SharedPreferences.getInstance();
+    final accepted = prefs.getBool(_prefDisclaimerKey) ?? false;
+    if (accepted) return;
+
+    // Wait for the first frame so the context is ready
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          backgroundColor: const Color(0xFF1E1E1E),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Row(
+            children: [
+              Text("⚠️", style: TextStyle(fontSize: 22)),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  "Неофициално приложение",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: const Text(
+            "Това приложение е неофициален проект и не е свързано с "
+                "Технически университет — София.\n\n"
+                "То използва публично достъпните данни от системата Е-Студент "
+                "единствено за удобство на студентите.\n\n"
+                "Факултетният номер и ЕГН се съхраняват само на устройството ти "
+                "и не се изпращат никъде, освен към сървъра на ТУ-София.",
+            style: TextStyle(
+              color: Color(0xFFBBBBBB),
+              fontSize: 14,
+              height: 1.55,
+            ),
+          ),
+          actions: [
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2ECC71),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                onPressed: () async {
+                  await prefs.setBool(_prefDisclaimerKey, true);
+                  if (context.mounted) Navigator.of(context).pop();
+                },
+                child: const Text(
+                  "Разбрах",
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    });
   }
 
   Future<void> _checkForUpdates() async {
@@ -142,7 +221,14 @@ class _MainPageState extends State<MainPage> {
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
-        title: const Text("e-university ТУ-София"),
+        title: const Text(
+          "Оценки от Е-Студент",
+          style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              fontSize: 28,
+          ),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
@@ -151,14 +237,6 @@ class _MainPageState extends State<MainPage> {
         padding: const EdgeInsets.all(15),
         child: Column(
           children: [
-            const Text(
-              "Оценки от Е-Студент",
-              style: TextStyle(
-                fontSize: 28,
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
             const SizedBox(height: 15),
             if (!_isLoggedIn) _buildLoginCard(),
             if (_isLoggedIn) ...[
@@ -270,7 +348,7 @@ class _MainPageState extends State<MainPage> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-                child: const Text("Вход", style: TextStyle(color: Colors.white)),
+                child: const Text("Login", style: TextStyle(color: Colors.white)),
               ),
             ),
           ],

@@ -50,6 +50,9 @@ class GradesParser {
     final entries = RegExp(r'([^\n<]+?\(\d\)\s*\([^)]+\))', caseSensitive: false)
         .allMatches(gradeSection)
         .map((m) => unescape.convert(m.group(1)!).trim())
+    // Strip any leftover HTML tag remnants (e.g. a stray "br>" or ">"
+    // left over from a "<br>" separator that got split mid-tag).
+        .map((s) => s.replaceFirst(RegExp(r'^(?:[a-zA-Z]*>)+\s*'), ''))
         .toList();
 
     if (entries.isEmpty) {
@@ -61,9 +64,7 @@ class GradesParser {
         lastEntry.contains("ликвидационна");
 
     final label = _extractLabel(lastEntry);
-    final displayGrade = isPoravka
-        ? "${label.length > 3 ? label.substring(3) : ''} (П)"
-        : label;
+    final displayGrade = isPoravka ? "$label (П)" : label;
 
     return GradeItem(
       subject: subject,

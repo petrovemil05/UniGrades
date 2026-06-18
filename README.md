@@ -1,4 +1,4 @@
-# e-student 
+# UniGrades
 ## (Unofficial app! It is not affiliated with, endorsed by, or maintained by TU-Sofia!)
 
 Android application for students of **Technical University of Sofia** that provides quick access to grades from the E-Student system, grade monitoring, notifications for newly published grades, average score calculation, and in-app updates.

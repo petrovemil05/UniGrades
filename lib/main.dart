@@ -38,7 +38,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'e-student',
+      title: 'UniGrades',
       theme: ThemeData(
         brightness: Brightness.dark,
         primarySwatch: Colors.blue,

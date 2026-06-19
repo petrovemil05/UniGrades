@@ -1,1 +1,1 @@
-{ "version": "1.0.7", "build": 7, "description": "Changed layout, added warning and fixed the notification timings", "apk_url": "https://github.com/petrovemil05/e_student/releases/latest/download/app-arm64-v8a-release.apk" }
+{ "version": "1.0.8", "build": 8, "description": "Changed the name and fixed grade parsing", "apk_url": "https://github.com/petrovemil05/e_student/releases/latest/download/app-arm64-v8a-release.apk" }

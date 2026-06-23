@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
@@ -27,8 +28,18 @@ class NotificationService {
     const AndroidInitializationSettings initializationSettingsAndroid =
     AndroidInitializationSettings('@mipmap/icon');
 
-    const InitializationSettings initializationSettings =
-    InitializationSettings(android: initializationSettingsAndroid);
+    final DarwinInitializationSettings initializationSettingsIOS =
+    DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+
+    final InitializationSettings initializationSettings =
+    InitializationSettings(
+      android: initializationSettingsAndroid,
+      iOS: initializationSettingsIOS,
+    );
 
     try {
       await _notificationsPlugin.initialize(
@@ -76,15 +87,20 @@ class NotificationService {
   }
 
   static Future<void> requestPermissions() async {
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      try {
+    try {
+      if (Platform.isAndroid) {
         final androidPlugin = _notificationsPlugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
         if (androidPlugin != null) {
           await androidPlugin.requestNotificationsPermission();
         }
-      } catch (e) {
-        debugPrint("Error requesting notification permissions: $e");
+      } else if (Platform.isIOS) {
+        final iosPlugin = _notificationsPlugin.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>();
+        if (iosPlugin != null) {
+          await iosPlugin.requestPermissions(alert: true, badge: true, sound: true);
+        }
       }
+    } catch (e) {
+      debugPrint("Error requesting notification permissions: $e");
     }
   }
 
@@ -113,11 +129,20 @@ class NotificationService {
       ],
     );
 
+    const DarwinNotificationDetails iOSPersistentDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: false,
+      presentSound: false,
+    );
+
     await _notificationsPlugin.show(
       id: id,
       title: title,
       body: body,
-      notificationDetails: const NotificationDetails(android: androidPlatformChannelSpecifics),
+      notificationDetails: const NotificationDetails(
+        android: androidPlatformChannelSpecifics,
+        iOS: iOSPersistentDetails,
+      ),
     );
   }
 
@@ -133,11 +158,20 @@ class NotificationService {
       enableVibration: true,
     );
 
+    const DarwinNotificationDetails iOSAlertDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
     await _notificationsPlugin.show(
       id: id,
       title: title,
       body: body,
-      notificationDetails: const NotificationDetails(android: androidPlatformChannelSpecifics),
+      notificationDetails: const NotificationDetails(
+        android: androidPlatformChannelSpecifics,
+        iOS: iOSAlertDetails,
+      ),
     );
   }
 

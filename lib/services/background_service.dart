@@ -88,7 +88,11 @@ void onStart(ServiceInstance service) async {
     // Monitoring loop
     while (isRunning) {
       try {
-        Duration delay = monitor.timeUntilNextHalfHour();
+        final prefs2 = await SharedPreferences.getInstance();
+        final int intervalMinutes = prefs2.getInt(GradeMonitorService.prefIntervalKey)
+            ?? GradeMonitorService.defaultIntervalMinutes;
+
+        Duration delay = monitor.timeUntilNextCheck(intervalMinutes);
         debugPrint('Next automatic check in ${delay.inMinutes} minutes');
 
         await Future.delayed(delay);

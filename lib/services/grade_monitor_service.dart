@@ -15,11 +15,14 @@ class GradeMonitorService {
   late final dynamic _api;
   late String _university;
 
+  static const String prefIntervalKey = 'check_interval_minutes';
+  static const int defaultIntervalMinutes = 30;
+
   final Function(String title, String body)? onStatusUpdate;
 
   static const int persistentNotifId    = 1001;
   static const int gradeAlertNotifId    = 1002;
-  static const String _prefLastCountKey = 'last_grade_count';
+  static const String prefLastCountKey = "last_grade_count";
 
   bool _initialized = false;
 
@@ -64,13 +67,13 @@ class GradeMonitorService {
       _updateStatus('⏳ Проверявам…', time);
 
       final prefs = await SharedPreferences.getInstance();
-      int lastGradeCount = prefs.getInt(_prefLastCountKey) ?? -1;
+      int lastGradeCount = prefs.getInt(prefLastCountKey) ?? -1;
 
       String html = await _api.getHtmlAsync(fnum, egn);
       int currentCount = _countGrades(html);
 
       if (lastGradeCount == -1) {
-        await prefs.setInt(_prefLastCountKey, currentCount);
+        await prefs.setInt(prefLastCountKey, currentCount);
         _updateStatus(
           '✅ Активно следене',
           'Първа проверка: $time | Оценки: $currentCount',
@@ -78,7 +81,7 @@ class GradeMonitorService {
       } else if (currentCount > lastGradeCount) {
         int newGrades     = currentCount - lastGradeCount;
         int previousCount = lastGradeCount;
-        await prefs.setInt(_prefLastCountKey, currentCount);
+        await prefs.setInt(prefLastCountKey, currentCount);
 
         final source = _university == 'SU' ? 'СУСИ' : 'e-university';
         String alertBody = newGrades == 1
@@ -94,8 +97,12 @@ class GradeMonitorService {
           NotificationService.showAlert(gradeAlertNotifId, '🎓 Нова оценка!', alertBody);
         } catch (_) {}
       } else {
-        await prefs.setInt(_prefLastCountKey, currentCount);
-        Duration next   = timeUntilNextHalfHour();
+        await prefs.setInt(prefLastCountKey, currentCount);
+
+        final int intervalMinutes = prefs.getInt(GradeMonitorService.prefIntervalKey)
+            ?? GradeMonitorService.defaultIntervalMinutes;
+
+        Duration next = timeUntilNextCheck(intervalMinutes);
         String nextTime = DateFormat('HH:mm').format(DateTime.now().add(next));
 
         _updateStatus(
@@ -109,10 +116,11 @@ class GradeMonitorService {
     }
   }
 
-  Duration timeUntilNextHalfHour() {
-    const int baseSeconds   = 30 * 60;
-    final int jitterSeconds = _rng.nextInt(241) - 120;
-    return Duration(seconds: baseSeconds + jitterSeconds);
+  Duration timeUntilNextCheck(int intervalMinutes) {
+    const int baseSeconds = 0;
+    final int totalSeconds = intervalMinutes * 60;
+    final int jitterSeconds = _rng.nextInt(241) - 120; // ±2 min jitter
+    return Duration(seconds: totalSeconds + jitterSeconds);
   }
 
   int _countGrades(String html) {

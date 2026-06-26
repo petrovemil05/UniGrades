@@ -32,6 +32,7 @@ class AverageBadge extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             averageResult.semesterLabels.join(' и '),
+            textAlign: TextAlign.center,
             style:  TextStyle(
               color: Colors.white.withValues(alpha: 0.7),
               fontSize: 12,

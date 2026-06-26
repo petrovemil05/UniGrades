@@ -1,3 +1,4 @@
+import 'package:e_student/ui/widgets/timing_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:e_student/models/grade_item.dart';
@@ -14,6 +15,8 @@ import 'package:e_student/ui/widgets/average_badge.dart';
 import 'package:e_student/ui/widgets/grades_list.dart';
 import 'package:e_student/ui/widgets/grade_actions.dart';
 import '../models/average_result.dart';
+import '../services/grade_monitor_service.dart';
+
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -37,6 +40,8 @@ class _MainPageState extends State<MainPage> {
   bool _isLoggedIn = false;
   DateTime? _lastUpdated;
 
+  int _intervalMinutes = 30;
+
   static const String _prefDisclaimerKey = 'disclaimer_accepted';
 
   @override
@@ -45,6 +50,20 @@ class _MainPageState extends State<MainPage> {
     _init();
     NotificationService.requestPermissions();
     _checkForUpdates();
+    _loadInterval();
+  }
+
+  Future<void> _loadInterval() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _intervalMinutes = prefs.getInt(GradeMonitorService.prefIntervalKey) ?? 30;
+    });
+  }
+
+  Future<void> _saveInterval(int minutes) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(GradeMonitorService.prefIntervalKey, minutes);
+    setState(() => _intervalMinutes = minutes);
   }
 
   Future<void> _init() async {
@@ -86,45 +105,46 @@ class _MainPageState extends State<MainPage> {
   }
 
   Future<void> _onLoginClicked() async {
-    final val1 = _user1Controller.text.trim();
-    final val2 = _user2Controller.text.trim();
-    if (val1.isEmpty || val2.isEmpty) return;
+    final fnum = _user1Controller.text.trim();
+    final egn = _user2Controller.text.trim();
+
+    if (fnum.isEmpty || egn.isEmpty) return;
 
     final prefs = await SharedPreferences.getInstance();
-    final key1  = _university == 'TU' ? 'fnum'     : 'username';
-    final key2  = _university == 'TU' ? 'egn'      : 'password';
-    await prefs.setString(key1, val1);
-    await prefs.setString(key2, val2);
 
-    setState(() => _isLoggedIn = true);
-    _loadGrades();
+    final oldFnum = prefs.getString("fnum") ?? "";
+    final oldEgn = prefs.getString("egn") ?? "";
+
+    final credentialsChanged = oldFnum != fnum || oldEgn != egn;
+
+    if (credentialsChanged) {
+      await prefs.remove(GradeMonitorService.prefLastCountKey);
+    }
+
+    await prefs.setString("fnum", fnum);
+    await prefs.setString("egn", egn);
+
+    setState(() {
+      _isLoggedIn = true;
+    });
+
+    await _loadGrades();
   }
 
   Future<void> _onLogoutClicked() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('fnum');
-    await prefs.remove('egn');
-    await prefs.remove('username');
-    await prefs.remove('password');
-    await prefs.remove(UniversityPickerPage.prefKey);
+
+    await prefs.remove("fnum");
+    await prefs.remove("egn");
+    await prefs.remove(GradeMonitorService.prefLastCountKey);
 
     setState(() {
-      _isLoggedIn    = false;
-      _grades        = null;
+      _isLoggedIn = false;
+      _grades = null;
       _averageResult = null;
-      _lastUpdated   = null;
-      _university    = null;
-      _api           = null;
-      _parser        = null;
       _user1Controller.clear();
       _user2Controller.clear();
     });
-
-    if (mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const UniversityPickerPage()),
-      );
-    }
   }
 
   Future<void> _loadGrades({bool pulling = false}) async {
@@ -278,6 +298,7 @@ class _MainPageState extends State<MainPage> {
                   onLoginClicked:     _onLoginClicked,
                 ),
               if (_isLoggedIn) ...[
+                TimingSelector(selectedMinutes: _intervalMinutes, onChanged: _saveInterval),
                 const GradeActions(),
                 const SizedBox(height: 8),
                 if (_lastUpdated != null)

@@ -1,14 +1,8 @@
 import 'package:html_unescape/html_unescape.dart';
 import '../models/grade_item.dart';
+import '../models/average_result.dart';
 
-class AverageResult {
-  final double average;
-  final List<String> semesterLabels;
-
-  AverageResult({required this.average, required this.semesterLabels});
-}
-
-class GradesParser {
+class TuGradesParser {
   final unescape = HtmlUnescape();
 
   String _colorForGrade(String gradeText) {

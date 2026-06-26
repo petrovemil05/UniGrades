@@ -5,6 +5,7 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'grade_monitor_service.dart';
 import 'notification_service.dart';
+import '../ui/university_picker_page.dart';
 
 class BackgroundService {
   static Future<void> initialize() async {
@@ -35,7 +36,6 @@ void onStart(ServiceInstance service) async {
 
   bool isRunning = true;
 
-  // Use NotificationService directly to ensure buttons (actions) are preserved
   void updateStatus(String title, String body) {
     NotificationService.showPersistent(
       GradeMonitorService.persistentNotifId,
@@ -45,18 +45,23 @@ void onStart(ServiceInstance service) async {
   }
 
   try {
-    // 1. Initial setup
     await NotificationService.init().timeout(
       const Duration(seconds: 5),
-      onTimeout: () => debugPrint("Notification init timeout in background"),
+      onTimeout: () => debugPrint('Notification init timeout in background'),
     );
 
-    final prefs = await SharedPreferences.getInstance();
-    String fnum = prefs.getString("fnum") ?? "";
-    String egn = prefs.getString("egn") ?? "";
+    final prefs      = await SharedPreferences.getInstance();
+    final university = prefs.getString(UniversityPickerPage.prefKey) ?? 'TU';
 
-    if (fnum.isEmpty || egn.isEmpty) {
-      updateStatus("Грешка", "Липсват данни за вход.");
+    // Pick credential keys based on university
+    final key1 = university == 'TU' ? 'fnum'     : 'username';
+    final key2 = university == 'TU' ? 'egn'      : 'password';
+
+    final cred1 = prefs.getString(key1) ?? '';
+    final cred2 = prefs.getString(key2) ?? '';
+
+    if (cred1.isEmpty || cred2.isEmpty) {
+      updateStatus('Грешка', 'Липсват данни за вход.');
       service.stopSelf();
       return;
     }
@@ -68,8 +73,8 @@ void onStart(ServiceInstance service) async {
     });
 
     final monitor = GradeMonitorService(
-      fnum: fnum,
-      egn: egn,
+      fnum: cred1,
+      egn:  cred2,
       onStatusUpdate: (title, body) => updateStatus(title, body),
     );
 
@@ -77,29 +82,26 @@ void onStart(ServiceInstance service) async {
       await monitor.checkOnce();
     });
 
-    // 1. Initial check
+    // Initial check
     await monitor.checkOnce();
 
-    // 2. Monitoring loop
+    // Monitoring loop
     while (isRunning) {
       try {
         Duration delay = monitor.timeUntilNextHalfHour();
-        debugPrint("Next automatic check in ${delay.inMinutes} minutes");
-        
-        // Wait until next interval (00 or 30)
+        debugPrint('Next automatic check in ${delay.inMinutes} minutes');
+
         await Future.delayed(delay);
 
         if (!isRunning) break;
 
-        // Perform check
         await monitor.checkOnce();
       } catch (e) {
-        debugPrint("Loop error: $e");
+        debugPrint('Loop error: $e');
         await Future.delayed(const Duration(minutes: 1));
       }
     }
-
   } catch (e) {
-    updateStatus("Грешка при работа", e.toString());
+    updateStatus('Грешка при работа', e.toString());
   }
 }

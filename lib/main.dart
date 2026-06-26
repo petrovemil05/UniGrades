@@ -1,39 +1,41 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'ui/main_page.dart';
+import 'ui/university_picker_page.dart';
 import 'viewmodels/grade_monitor_viewmodel.dart';
 import 'services/notification_service.dart';
 import 'services/background_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // 1. Initialize notifications first (creates channels)
-  try {
-    await NotificationService.init();
-  } catch (e) {
-    debugPrint("Failed to init NotificationService: $e");
-  }
 
-  // 2. Initialize background service configuration
-  try {
-    await BackgroundService.initialize();
-  } catch (e) {
-    debugPrint("Failed to init BackgroundService: $e");
-  }
+  try { await NotificationService.init(); }
+  catch (e) { debugPrint('Failed to init NotificationService: $e'); }
+
+  try { await BackgroundService.initialize(); }
+  catch (e) { debugPrint('Failed to init BackgroundService: $e'); }
+
+  // Determine start page before runApp so there's no flash
+  final prefs      = await SharedPreferences.getInstance();
+  final university = prefs.getString(UniversityPickerPage.prefKey) ?? '';
+  final Widget home = university.isEmpty
+      ? const UniversityPickerPage()
+      : const MainPage();
 
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => GradeMonitorViewModel()),
       ],
-      child: const MyApp(),
+      child: MyApp(home: home),
     ),
   );
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final Widget home;
+  const MyApp({super.key, required this.home});
 
   @override
   Widget build(BuildContext context) {
@@ -44,7 +46,7 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         useMaterial3: true,
       ),
-      home: const MainPage(),
+      home: home,
     );
   }
 }

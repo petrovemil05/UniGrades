@@ -4,13 +4,14 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/grade_monitor_service.dart';
 import '../services/notification_service.dart';
+import '../ui/university_picker_page.dart';
 
 class GradeMonitorViewModel extends ChangeNotifier {
   bool _isMonitoring = false;
 
   bool get isMonitoring => _isMonitoring;
 
-  String get toggleLabel => _isMonitoring ? "Спри следенето" : "Следи оценките";
+  String get toggleLabel => _isMonitoring ? 'Спри следенето' : 'Следи оценките';
 
   GradeMonitorViewModel() {
     _checkInitialState();
@@ -22,19 +23,25 @@ class GradeMonitorViewModel extends ChangeNotifier {
   }
 
   Future<void> toggle() async {
-    final service = FlutterBackgroundService();
-    bool isRunning = await service.isRunning();
+    final service   = FlutterBackgroundService();
+    bool isRunning  = await service.isRunning();
 
     if (isRunning) {
-      service.invoke("stopService");
+      service.invoke('stopService');
       _isMonitoring = false;
       await NotificationService.cancel(GradeMonitorService.persistentNotifId);
     } else {
-      final prefs = await SharedPreferences.getInstance();
-      String fnum = prefs.getString("fnum") ?? "";
-      String egn = prefs.getString("egn") ?? "";
+      final prefs      = await SharedPreferences.getInstance();
+      final university = prefs.getString(UniversityPickerPage.prefKey) ?? 'TU';
 
-      if (fnum.isEmpty || egn.isEmpty) return;
+      // Pick the right credential keys based on university
+      final key1 = university == 'TU' ? 'fnum'     : 'username';
+      final key2 = university == 'TU' ? 'egn'      : 'password';
+
+      final cred1 = prefs.getString(key1) ?? '';
+      final cred2 = prefs.getString(key2) ?? '';
+
+      if (cred1.isEmpty || cred2.isEmpty) return;
 
       await service.startService();
       _isMonitoring = true;

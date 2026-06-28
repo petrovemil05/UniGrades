@@ -48,6 +48,11 @@ class FcmService {
 
     await _localNotif.initialize(settings: const InitializationSettings(
       android: AndroidInitializationSettings('ic_icon_circle_nobg'),
+      iOS: DarwinInitializationSettings(
+        requestAlertPermission: false,
+        requestBadgePermission: false,
+        requestSoundPermission: false,
+      ),
     ));
 
     // Handle wake-up when app is in foreground
@@ -68,6 +73,11 @@ class FcmService {
               importance: Importance.high,
               priority: Priority.high,
               icon: 'ic_icon_circle_nobg',
+            ),
+            iOS: DarwinNotificationDetails(
+              presentAlert: true,
+              presentBadge: true,
+              presentSound: true,
             ),
           ),
         );

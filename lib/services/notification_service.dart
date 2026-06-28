@@ -26,7 +26,7 @@ class NotificationService {
     if (_isInitialized) return;
 
     const AndroidInitializationSettings initializationSettingsAndroid =
-    AndroidInitializationSettings('@mipmap/icon');
+    AndroidInitializationSettings('ic_icon_circle_nobg');
 
     final DarwinInitializationSettings initializationSettingsIOS =
     DarwinInitializationSettings(

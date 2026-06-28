@@ -2,16 +2,24 @@
     xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
 
     <application
         android:label="UniGrades"
         android:name="${applicationName}"
-        android:icon="@mipmap/icon">
+        android:icon="@mipmap/icon_square">
+
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="grade_alerts" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_icon_circle_nobg" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/notification_icon_color" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -33,20 +41,6 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-        <service
-            android:name="id.flutter.flutter_background_service.BackgroundService"
-            android:foregroundServiceType="dataSync"
-            android:exported="true"
-            tools:replace="android:exported" />
-        <receiver
-            android:name="id.flutter.flutter_background_service.BootReceiver"
-            android:enabled="false"
-            android:exported="false"
-            tools:node="replace">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-            </intent-filter>
-        </receiver>
     </application>
     <queries>
         <intent>

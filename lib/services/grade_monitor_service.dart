@@ -78,7 +78,7 @@ class GradeMonitorService {
           '✅ Активно следене',
           'Първа проверка: $time | Оценки: $currentCount',
         );
-      } else if (currentCount > lastGradeCount) {
+      } else if (currentCount == lastGradeCount) {
         int newGrades     = currentCount - lastGradeCount;
         int previousCount = lastGradeCount;
         await prefs.setInt(prefLastCountKey, currentCount);

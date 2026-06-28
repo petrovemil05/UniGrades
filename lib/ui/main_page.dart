@@ -16,7 +16,7 @@ import 'package:e_student/ui/widgets/grades_list.dart';
 import 'package:e_student/ui/widgets/grade_actions.dart';
 import '../models/average_result.dart';
 import '../services/grade_monitor_service.dart';
-
+import '../services/fcm_service.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -124,6 +124,8 @@ class _MainPageState extends State<MainPage> {
     await prefs.setString("fnum", fnum);
     await prefs.setString("egn", egn);
 
+    await FcmService.register();
+
     setState(() {
       _isLoggedIn = true;
     });
@@ -132,11 +134,14 @@ class _MainPageState extends State<MainPage> {
   }
 
   Future<void> _onLogoutClicked() async {
+    await FcmService.unregister();
     final prefs = await SharedPreferences.getInstance();
 
     await prefs.remove("fnum");
     await prefs.remove("egn");
+    await prefs.remove('university');
     await prefs.remove(GradeMonitorService.prefLastCountKey);
+    await prefs.setBool('is_monitoring', false);
 
     setState(() {
       _isLoggedIn = false;

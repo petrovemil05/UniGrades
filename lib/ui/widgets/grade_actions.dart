@@ -13,18 +13,19 @@ class GradeActions extends StatelessWidget {
           width: double.infinity,
           child: ElevatedButton(
             onPressed: () async {
-              if (vm.isMonitoring) { await vm.toggle(); return; }
+              if (vm.isMonitoring) {
+                await vm.toggle();
+                return;
+              }
               final result = await showDialog<bool>(
                 context: context,
                 builder: (context) => AlertDialog(
                   title: const Text('Следене на оценки'),
                   content: const Text(
-                    'Следенето на оценки работи във фонов режим и проверява '
-                        'за нови оценки периодично.\n\n'
-                        'Това може да увеличи използването на батерията и не гарантира '
-                        'абсолютно точни времена на проверка, тъй като Android може '
-                        'да ограничава фоновите процеси.\n\n'
-                        'Желаете ли да продължите?',
+                    'Приложението ще получава известия при нова оценка '
+                        'дори когато е затворено.\n\n'
+                        'Проверките се извършват на сървър — '
+                        'без влияние върху батерията на телефона.',
                   ),
                   actions: [
                     TextButton(

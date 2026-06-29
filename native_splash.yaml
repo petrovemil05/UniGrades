@@ -1,0 +1,12 @@
+flutter_native_splash:
+  color: "#121212"
+  image: android/app/src/main/res/drawable/icon_cut_nobg.png
+
+  android: true
+  ios: true
+  web: false
+
+  android_12:
+    color: "#121212"
+    image: android/app/src/main/res/drawable/icon_cut_nobg.png
+    icon_background_color: "#121212"

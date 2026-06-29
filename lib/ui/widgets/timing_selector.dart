@@ -25,7 +25,6 @@ class TimingSelector extends StatelessWidget {
           style: const TextStyle(color: Colors.white),
           underline: const SizedBox(),
           items: const [
-            DropdownMenuItem(value: 15, child: Text('15 минути')),
             DropdownMenuItem(value: 30, child: Text('30 минути')),
             DropdownMenuItem(value: 60, child: Text('1 час')),
             DropdownMenuItem(value: 120, child: Text('2 часа')),

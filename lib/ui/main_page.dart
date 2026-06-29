@@ -1,22 +1,25 @@
-import 'package:e_student/ui/widgets/timing_selector.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:unigrades/ui/widgets/timing_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:e_student/models/grade_item.dart';
-import 'package:e_student/services/su_grades_parser.dart';
-import 'package:e_student/services/su_api_service.dart';
-import 'package:e_student/services/tu_grades_parser.dart';
-import 'package:e_student/services/tu_api_service.dart';
-import 'package:e_student/services/notification_service.dart';
-import 'package:e_student/services/update_service.dart';
-import 'package:e_student/ui/update_dialog.dart';
-import 'package:e_student/ui/university_picker_page.dart';
-import 'package:e_student/ui/widgets/login_card.dart';
-import 'package:e_student/ui/widgets/average_badge.dart';
-import 'package:e_student/ui/widgets/grades_list.dart';
-import 'package:e_student/ui/widgets/grade_actions.dart';
+import 'package:unigrades/models/grade_item.dart';
+import 'package:unigrades/services/su_grades_parser.dart';
+import 'package:unigrades/services/su_api_service.dart';
+import 'package:unigrades/services/tu_grades_parser.dart';
+import 'package:unigrades/services/tu_api_service.dart';
+import 'package:unigrades/services/notification_service.dart';
+import 'package:unigrades/services/update_service.dart';
+import 'package:unigrades/ui/update_dialog.dart';
+import 'package:unigrades/ui/university_picker_page.dart';
+import 'package:unigrades/ui/widgets/login_card.dart';
+import 'package:unigrades/ui/widgets/average_badge.dart';
+import 'package:unigrades/ui/widgets/grades_list.dart';
+import 'package:unigrades/ui/widgets/grade_actions.dart';
 import '../models/average_result.dart';
 import '../services/grade_monitor_service.dart';
 import '../services/fcm_service.dart';
+import '../viewmodels/grade_monitor_viewmodel.dart';
+import 'package:provider/provider.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -39,6 +42,7 @@ class _MainPageState extends State<MainPage> {
   bool _isPulling  = false;
   bool _isLoggedIn = false;
   DateTime? _lastUpdated;
+  bool _isCheckingStartup = true;
 
   int _intervalMinutes = 30;
 
@@ -67,8 +71,13 @@ class _MainPageState extends State<MainPage> {
   }
 
   Future<void> _init() async {
-    await _showDisclaimerIfNeeded();
     await _checkLogin();
+
+    if (mounted) {
+      setState(() {
+        _isCheckingStartup = false;
+      });
+    }
   }
 
   void _setupServices(String university) {
@@ -85,7 +94,10 @@ class _MainPageState extends State<MainPage> {
   Future<void> _checkLogin() async {
     final prefs      = await SharedPreferences.getInstance();
     final university = prefs.getString(UniversityPickerPage.prefKey) ?? '';
-    if (university.isEmpty) return;
+    if (university.isEmpty) {
+      _redirectToUniversityPicker();
+      return;
+    }
 
     setState(() => _setupServices(university));
 
@@ -104,6 +116,18 @@ class _MainPageState extends State<MainPage> {
     }
   }
 
+  void _redirectToUniversityPicker() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => const UniversityPickerPage(),
+        ),
+      );
+    });
+  }
+
   Future<void> _onLoginClicked() async {
     final fnum = _user1Controller.text.trim();
     final egn = _user2Controller.text.trim();
@@ -112,8 +136,11 @@ class _MainPageState extends State<MainPage> {
 
     final prefs = await SharedPreferences.getInstance();
 
-    final oldFnum = prefs.getString("fnum") ?? "";
-    final oldEgn = prefs.getString("egn") ?? "";
+    final key1 = _university == 'TU' ? 'fnum'     : 'username';
+    final key2 = _university == 'TU' ? 'egn'      : 'password';
+
+    final oldFnum = prefs.getString(key1) ?? "";
+    final oldEgn = prefs.getString(key2) ?? "";
 
     final credentialsChanged = oldFnum != fnum || oldEgn != egn;
 
@@ -121,10 +148,8 @@ class _MainPageState extends State<MainPage> {
       await prefs.remove(GradeMonitorService.prefLastCountKey);
     }
 
-    await prefs.setString("fnum", fnum);
-    await prefs.setString("egn", egn);
-
-    await FcmService.register();
+    await prefs.setString(key1, fnum);
+    await prefs.setString(key2, egn);
 
     setState(() {
       _isLoggedIn = true;
@@ -135,13 +160,31 @@ class _MainPageState extends State<MainPage> {
 
   Future<void> _onLogoutClicked() async {
     await FcmService.unregister();
+
+    final service = FlutterBackgroundService();
     final prefs = await SharedPreferences.getInstance();
+
+    final isRunning = await service.isRunning();
+    if (isRunning) {
+      service.invoke("stopService");
+    }
 
     await prefs.remove("fnum");
     await prefs.remove("egn");
+    await prefs.remove("username");
+    await prefs.remove("password");
     await prefs.remove('university');
     await prefs.remove(GradeMonitorService.prefLastCountKey);
+    await prefs.remove("fcm_wake_counter");
+    await prefs.remove("last_actual_check_at");
     await prefs.setBool('is_monitoring', false);
+
+    await NotificationService.cancel(GradeMonitorService.persistentNotifId);
+    await NotificationService.cancel(GradeMonitorService.gradeAlertNotifId);
+
+    if (mounted) {
+      context.read<GradeMonitorViewModel>().setMonitoring(false);
+    }
 
     setState(() {
       _isLoggedIn = false;
@@ -150,6 +193,14 @@ class _MainPageState extends State<MainPage> {
       _user1Controller.clear();
       _user2Controller.clear();
     });
+
+    if (!mounted) return;
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => const UniversityPickerPage(),
+      ),
+    );
   }
 
   Future<void> _loadGrades({bool pulling = false}) async {
@@ -177,66 +228,6 @@ class _MainPageState extends State<MainPage> {
     if (updateInfo != null && mounted) UpdateDialog.show(context, updateInfo);
   }
 
-  Future<void> _showDisclaimerIfNeeded() async {
-    final prefs    = await SharedPreferences.getInstance();
-    final accepted = prefs.getBool(_prefDisclaimerKey) ?? false;
-    if (accepted) return;
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          backgroundColor: const Color(0xFF1E1E1E),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
-            children: [
-              Text('⚠️', style: TextStyle(fontSize: 22)),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Неофициално приложение',
-                  style: TextStyle(
-                      color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-          content: const Text(
-            'Това приложение е неофициален проект и не е свързано с '
-                'Технически университет — София или Софийски университет.\n\n'
-                'То използва публично достъпните данни от студентските системи '
-                'единствено за удобство на студентите.\n\n'
-                'Данните се съхраняват само на устройството ти '
-                'и не се изпращат никъде, освен към сървъра на избрания университет.',
-            style: TextStyle(color: Color(0xFFBBBBBB), fontSize: 14, height: 1.55),
-          ),
-          actions: [
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2ECC71),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                onPressed: () async {
-                  await prefs.setBool(_prefDisclaimerKey, true);
-                  if (context.mounted) Navigator.of(context).pop();
-                },
-                child: const Text(
-                  'Разбрах',
-                  style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 15),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    });
-  }
-
   String get _field1Hint    => _university == 'SU' ? 'Потребителско име' : 'Факултетен номер';
   String get _field2Hint    => _university == 'SU' ? 'Парола'            : 'ЕГН';
   bool   get _field2Obscure => _university == 'SU';
@@ -253,7 +244,17 @@ class _MainPageState extends State<MainPage> {
 
   @override
   Widget build(BuildContext context) {
-    final uniLabel = _university == 'SU' ? 'СУСИ — Оценки' : 'Оценки от Е-Студент';
+
+    if (_isCheckingStartup) {
+      return const Scaffold(
+        backgroundColor: Color(0xFF121212),
+        body: Center(
+          child: CircularProgressIndicator(color: Colors.white),
+        ),
+      );
+    }
+
+    final uniLabel = _university == 'SU' ? 'СУСИ' : 'Е-Студент';
 
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
@@ -299,7 +300,7 @@ class _MainPageState extends State<MainPage> {
                   field1Hint:         _field1Hint,
                   field2Hint:         _field2Hint,
                   field2Obscure:      _field2Obscure,
-                  field1KeyboardType: _field1KeyboardType,
+                  fieldKeyboardType: _field1KeyboardType,
                   onLoginClicked:     _onLoginClicked,
                 ),
               if (_isLoggedIn) ...[

@@ -8,7 +8,7 @@ class LoginCard extends StatelessWidget {
   final String field1Hint;
   final String field2Hint;
   final bool field2Obscure;
-  final TextInputType field1KeyboardType;
+  final TextInputType fieldKeyboardType;
   final VoidCallback onLoginClicked;
 
   const LoginCard({
@@ -18,7 +18,7 @@ class LoginCard extends StatelessWidget {
     required this.field1Hint,
     required this.field2Hint,
     required this.field2Obscure,
-    required this.field1KeyboardType,
+    required this.fieldKeyboardType,
     required this.onLoginClicked,
   });
 
@@ -46,7 +46,7 @@ class LoginCard extends StatelessWidget {
                 fillColor: Colors.transparent,
               ),
               style: const TextStyle(color: Colors.white),
-              keyboardType: field1KeyboardType,
+              keyboardType: fieldKeyboardType,
             ),
             const SizedBox(height: 10),
             TextField(
@@ -58,7 +58,7 @@ class LoginCard extends StatelessWidget {
                 fillColor: Colors.transparent,
               ),
               style: const TextStyle(color: Colors.white),
-              keyboardType: TextInputType.text,
+              keyboardType: fieldKeyboardType,
               obscureText: field2Obscure,
             ),
             const SizedBox(height: 15),

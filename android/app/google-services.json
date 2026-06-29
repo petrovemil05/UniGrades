@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1047197774233:android:a234936cc7006943b6a308",
+        "mobilesdk_app_id": "1:1047197774233:android:e66be2eaa44a1b85b6a308",
         "android_client_info": {
-          "package_name": "com.example.e_student"
+          "package_name": "com.upbg.unigrades"
         }
       },
       "oauth_client": [],

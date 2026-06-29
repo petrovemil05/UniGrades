@@ -24,6 +24,9 @@ class GradeMonitorService {
   static const int gradeAlertNotifId    = 1002;
   static const String prefLastCountKey = "last_grade_count";
 
+  static const String prefWakeCounterKey = 'fcm_wake_counter';
+  static const String prefLastActualCheckAtKey = 'last_actual_check_at';
+
   bool _initialized = false;
 
   GradeMonitorService({
@@ -31,6 +34,11 @@ class GradeMonitorService {
     required this.egn,
     this.onStatusUpdate,
   });
+
+  int _requiredWakeCount(int intervalMinutes) {
+    if (intervalMinutes <= 30) return 1;
+    return (intervalMinutes / 30).round();
+  }
 
   Future<void> _ensureInit() async {
     if (_initialized) return;
@@ -40,13 +48,43 @@ class GradeMonitorService {
     _initialized = true;
   }
 
-  Future<void> checkOnce() async {
+  Future checkOnce() async {
     try {
+      await _ensureInit();
+
+      final prefs = await SharedPreferences.getInstance();
+      final int intervalMinutes =
+          prefs.getInt(prefIntervalKey) ?? defaultIntervalMinutes;
+
+      final int requiredWakeCount = _requiredWakeCount(intervalMinutes);
+      int wakeCounter = prefs.getInt(prefWakeCounterKey) ?? 0;
+
+      wakeCounter += 1;
+      await prefs.setInt(prefWakeCounterKey, wakeCounter);
+
+      if (wakeCounter < requiredWakeCount) {
+        final int remaining = requiredWakeCount - wakeCounter;
+        final String time = DateFormat('HH:mm:ss').format(DateTime.now());
+
+        _updateStatus(
+          '⏳ Изчакване',
+          '$time | Интервал: ${intervalMinutes} мин | Остават още $remaining събуждания',
+        );
+        return;
+      }
+
+      await prefs.setInt(prefWakeCounterKey, 0);
+      await prefs.setString(prefLastActualCheckAtKey, DateTime.now().toIso8601String());
+
       await _checkGrades();
     } catch (e) {
       _updateStatus('❌ Грешка при проверка', e.toString());
       try {
-        NotificationService.showAlert(gradeAlertNotifId, 'Грешка при проверка', e.toString());
+        NotificationService.showAlert(
+          gradeAlertNotifId,
+          'Грешка при проверка',
+          e.toString(),
+        );
       } catch (_) {}
     }
   }
@@ -78,7 +116,7 @@ class GradeMonitorService {
           '✅ Активно следене',
           'Първа проверка: $time | Оценки: $currentCount',
         );
-      } else if (currentCount == lastGradeCount) {
+      } else if (currentCount > lastGradeCount) {
         int newGrades     = currentCount - lastGradeCount;
         int previousCount = lastGradeCount;
         await prefs.setInt(prefLastCountKey, currentCount);
@@ -99,15 +137,13 @@ class GradeMonitorService {
       } else {
         await prefs.setInt(prefLastCountKey, currentCount);
 
-        final int intervalMinutes = prefs.getInt(GradeMonitorService.prefIntervalKey)
-            ?? GradeMonitorService.defaultIntervalMinutes;
-
-        Duration next = timeUntilNextCheck(intervalMinutes);
-        String nextTime = DateFormat('HH:mm').format(DateTime.now().add(next));
+        final int intervalMinutes =
+            prefs.getInt(GradeMonitorService.prefIntervalKey) ??
+                GradeMonitorService.defaultIntervalMinutes;
 
         _updateStatus(
           '✅ Няма промяна',
-          'Проверено: $time | Оценки: $currentCount | Следваща: $nextTime',
+          'Проверено: $time | Оценки: $currentCount | Интервал: ${intervalMinutes} мин',
         );
       }
     } catch (e) {
@@ -117,7 +153,6 @@ class GradeMonitorService {
   }
 
   Duration timeUntilNextCheck(int intervalMinutes) {
-    const int baseSeconds = 0;
     final int totalSeconds = intervalMinutes * 60;
     final int jitterSeconds = _rng.nextInt(241) - 120; // ±2 min jitter
     return Duration(seconds: totalSeconds + jitterSeconds);

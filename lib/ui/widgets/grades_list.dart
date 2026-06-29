@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:e_student/models/grade_item.dart';
+import 'package:unigrades/models/grade_item.dart';
 
 class GradesList extends StatefulWidget {
   final List<GradeItem> grades;

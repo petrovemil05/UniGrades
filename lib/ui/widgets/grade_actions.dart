@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:e_student/viewmodels/grade_monitor_viewmodel.dart';
+import 'package:unigrades/viewmodels/grade_monitor_viewmodel.dart';
 
 class GradeActions extends StatelessWidget {
   const GradeActions({super.key});

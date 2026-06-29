@@ -2,15 +2,101 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'main_page.dart';
 
-class UniversityPickerPage extends StatelessWidget {
+class UniversityPickerPage extends StatefulWidget {
   const UniversityPickerPage({super.key});
 
   static const String prefKey = 'university';
 
-  Future<void> _pick(BuildContext context, String value) async {
+  @override
+  State<UniversityPickerPage> createState() => _UniversityPickerPageState();
+}
+
+class _UniversityPickerPageState extends State<UniversityPickerPage> {
+  static const String _prefDisclaimerKey = 'disclaimer_accepted';
+
+  @override
+  void initState() {
+    super.initState();
+    _showDisclaimerIfNeeded();
+  }
+
+  Future<void> _showDisclaimerIfNeeded() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(prefKey, value);
-    if (context.mounted) {
+    final accepted = prefs.getBool(_prefDisclaimerKey) ?? false;
+    if (accepted) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          backgroundColor: const Color(0xFF1E1E1E),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Text('⚠️', style: TextStyle(fontSize: 22)),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Неофициално приложение',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: const Text(
+            'Това приложение е неофициален проект и не е свързано с '
+                'Технически университет — София или Софийски университет.\n\n'
+                'То използва публично достъпните данни от студентските системи '
+                'единствено за удобство на студентите.\n\n'
+                'Данните се съхраняват само на устройството ти '
+                'и не се изпращат никъде, освен към сървъра на избрания университет.',
+            style: TextStyle(
+              color: Color(0xFFBBBBBB),
+              fontSize: 14,
+              height: 1.55,
+            ),
+          ),
+          actions: [
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2ECC71),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                onPressed: () async {
+                  await prefs.setBool(_prefDisclaimerKey, true);
+                  if (context.mounted) Navigator.of(context).pop();
+                },
+                child: const Text(
+                  'Разбрах',
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+
+  Future<void> _pick(String value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(UniversityPickerPage.prefKey, value);
+    if (mounted) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const MainPage()),
       );
@@ -54,15 +140,15 @@ class UniversityPickerPage extends StatelessWidget {
                 subtitle: 'Технически университет',
                 color: const Color(0xFF3498DB),
                 icon: Icons.engineering,
-                onTap: () => _pick(context, 'TU'),
+                onTap: () => _pick('TU'),
               ),
               const SizedBox(height: 16),
               _UniButton(
-                label: 'СУ "Св Климент Охридски"',
-                subtitle: 'Софийски университет',
+                label: 'Софийски университет',
+                subtitle: '"Св Климент Охридски"',
                 color: const Color(0xFF2ECC71),
                 icon: Icons.account_balance,
-                onTap: () => _pick(context, 'SU'),
+                onTap: () => _pick('SU'),
               ),
             ],
           ),
@@ -105,7 +191,7 @@ class _UniButton extends StatelessWidget {
             children: [
               Icon(icon, color: color, size: 32),
               const SizedBox(width: 16),
-              Expanded(  // ← add this
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -116,7 +202,7 @@ class _UniButton extends StatelessWidget {
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
-                      overflow: TextOverflow.ellipsis,  // ← safety fallback
+                      overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       subtitle,
@@ -128,7 +214,7 @@ class _UniButton extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),  // ← small gap before arrow
+              const SizedBox(width: 8),
               Icon(Icons.arrow_forward_ios, color: color, size: 16),
             ],
           ),

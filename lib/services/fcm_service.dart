@@ -11,18 +11,22 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   if (message.data['type'] != 'check_grades') return;
 
   final prefs = await SharedPreferences.getInstance();
-  final username = prefs.getString('fnum') ?? '';
-  final password = prefs.getString('egn') ?? '';
+  await prefs.reload();
+
   final university = prefs.getString('university') ?? 'TU';
+  final key1 = university == 'TU' ? 'fnum' : 'username';
+  final key2 = university == 'TU' ? 'egn' : 'password';
 
-  if (username.isEmpty || password.isEmpty) return;
+  final user1 = prefs.getString(key1) ?? '';
+  final user2 = prefs.getString(key2) ?? '';
 
-  // Run the grade check — GradeMonitorService reads prefs and shows
-  // a local notification if a new grade is detected
+  if (user1.isEmpty || user2.isEmpty) return;
+
   final monitor = GradeMonitorService(
-    fnum: username,
-    egn: password
+    fnum: user1,
+    egn: user2,
   );
+
   await monitor.checkOnce();
 }
 
@@ -86,10 +90,22 @@ class FcmService {
       // For silent data messages (from your server ping)
       if (message.data['type'] == 'check_grades') {
         final prefs = await SharedPreferences.getInstance();
+        await prefs.reload();
+
+        final university = prefs.getString('university') ?? 'TU';
+        final key1 = university == 'TU' ? 'fnum' : 'username';
+        final key2 = university == 'TU' ? 'egn' : 'password';
+
+        final user1 = prefs.getString(key1) ?? '';
+        final user2 = prefs.getString(key2) ?? '';
+
+        if (user1.isEmpty || user2.isEmpty) return;
+
         final monitor = GradeMonitorService(
-          fnum: prefs.getString('fnum') ?? '',
-          egn: prefs.getString('egn') ?? ''
+          fnum: user1,
+          egn: user2,
         );
+
         await monitor.checkOnce();
       }
     });
@@ -113,14 +129,35 @@ class FcmService {
     if (token == null) return;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefFcmTokenKey, token);
+    print('FCM Token: $token');
     await _sendRegistration(token);
+  }
+
+  static Future<void> runCheckNow() async {
+    final prefs = await SharedPreferences.getInstance();
+    final university = prefs.getString('university') ?? 'TU';
+
+    final key1 = university == 'TU' ? 'fnum' : 'username';
+    final key2 = university == 'TU' ? 'egn' : 'password';
+
+    final user1 = prefs.getString(key1) ?? '';
+    final user2 = prefs.getString(key2) ?? '';
+
+    if (user1.isEmpty || user2.isEmpty) return;
+
+    final monitor = GradeMonitorService(
+      fnum: user1,
+      egn: user2,
+    );
+
+    await monitor.checkOnce();
   }
 
   static Future<void> _sendRegistration(String token) async {
     await http.post(
       Uri.parse('$_serverUrl/register'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'fcmToken': token}), // token only — no credentials
+      body: jsonEncode({'fcmToken': token, 'platform': "android"}),
     );
   }
 

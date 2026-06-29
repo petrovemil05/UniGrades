@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:e_student/models/average_result.dart';
+import 'package:unigrades/models/average_result.dart';
 
 class AverageBadge extends StatelessWidget {
   final AverageResult averageResult;

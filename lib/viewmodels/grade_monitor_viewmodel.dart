@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/fcm_service.dart';
+import '../services/grade_monitor_service.dart';
+import '../services/notification_service.dart';
 
 class GradeMonitorViewModel extends ChangeNotifier {
   static const String _prefMonitoringKey = 'is_monitoring';
@@ -19,16 +21,24 @@ class GradeMonitorViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setMonitoring(bool value) {
+    _isMonitoring = value;
+    notifyListeners();
+  }
+
   Future<void> toggle() async {
     final prefs = await SharedPreferences.getInstance();
+
     if (_isMonitoring) {
       await FcmService.unregister();
+      await NotificationService.cancel(GradeMonitorService.persistentNotifId);
       await prefs.setBool(_prefMonitoringKey, false);
       _isMonitoring = false;
     } else {
       await FcmService.register();
       await prefs.setBool(_prefMonitoringKey, true);
       _isMonitoring = true;
+      await FcmService.runCheckNow();
     }
     notifyListeners();
   }

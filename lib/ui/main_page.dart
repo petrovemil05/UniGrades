@@ -173,7 +173,7 @@ class _MainPageState extends State<MainPage> {
     await prefs.remove("egn");
     await prefs.remove("username");
     await prefs.remove("password");
-    await prefs.remove('university');
+
     await prefs.remove(GradeMonitorService.prefLastCountKey);
     await prefs.remove("fcm_wake_counter");
     await prefs.remove("last_actual_check_at");
@@ -196,11 +196,7 @@ class _MainPageState extends State<MainPage> {
 
     if (!mounted) return;
 
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => const UniversityPickerPage(),
-      ),
-    );
+
   }
 
   Future<void> _loadGrades({bool pulling = false}) async {
@@ -256,80 +252,101 @@ class _MainPageState extends State<MainPage> {
 
     final uniLabel = _university == 'SU' ? 'СУСИ' : 'Е-Студент';
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF121212),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-        leading: _isLoggedIn
-            ? IconButton(
-          icon: const Icon(Icons.logout, color: Color(0xFFE74C3C)),
-          tooltip: 'Изход',
-          onPressed: _onLogoutClicked,
-        )
-            : null,
-        title: Text(
-          uniLabel,
-          style: const TextStyle(
-              fontWeight: FontWeight.bold, color: Colors.white, fontSize: 26),
-        ),
-        actions: [
-          if (_isLoggedIn)
-            IconButton(
-              icon: const Icon(Icons.refresh, color: Color(0xFF2ECC71)),
-              tooltip: 'Обнови',
-              onPressed: _isLoading ? null : _loadGrades,
+    return PopScope(
+      canPop: _isLoggedIn,
+      onPopInvoked: (didPop) {
+        if (didPop) return;
+
+        if (!_isLoggedIn) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => const UniversityPickerPage(),
             ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: () => _loadGrades(pulling: true),
-        color: const Color(0xFF2ECC71),
-        backgroundColor: const Color(0xFF1E1E1E),
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(15),
-          child: Column(
-            children: [
-              const SizedBox(height: 15),
-              if (!_isLoggedIn)
-                LoginCard(
-                  user1Controller:    _user1Controller,
-                  user2Controller:    _user2Controller,
-                  field1Hint:         _field1Hint,
-                  field2Hint:         _field2Hint,
-                  field2Obscure:      _field2Obscure,
-                  fieldKeyboardType: _field1KeyboardType,
-                  onLoginClicked:     _onLoginClicked,
-                ),
-              if (_isLoggedIn) ...[
-                TimingSelector(selectedMinutes: _intervalMinutes, onChanged: _saveInterval),
-                const GradeActions(),
-                const SizedBox(height: 8),
-                if (_lastUpdated != null)
-                  Text(
-                    _lastUpdatedLabel,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.45),
-                      fontSize: 12,
-                      fontStyle: FontStyle.italic,
+          );
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFF121212),
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          centerTitle: true,
+          leading: _isLoggedIn
+              ? IconButton(
+            icon: const Icon(Icons.logout, color: Color(0xFFE74C3C)),
+            tooltip: 'Изход',
+            onPressed: _onLogoutClicked,
+          )
+              : null,
+          title: Text(
+            uniLabel,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              fontSize: 26,
+            ),
+          ),
+          actions: [
+            if (_isLoggedIn)
+              IconButton(
+                icon: const Icon(Icons.refresh, color: Color(0xFF2ECC71)),
+                tooltip: 'Обнови',
+                onPressed: _isLoading ? null : _loadGrades,
+              ),
+          ],
+        ),
+        body: RefreshIndicator(
+          onRefresh: () => _loadGrades(pulling: true),
+          color: const Color(0xFF2ECC71),
+          backgroundColor: const Color(0xFF1E1E1E),
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(15),
+            child: Column(
+              children: [
+                const SizedBox(height: 15),
+                if (!_isLoggedIn)
+                  LoginCard(
+                    user1Controller: _user1Controller,
+                    user2Controller: _user2Controller,
+                    field1Hint: _field1Hint,
+                    field2Hint: _field2Hint,
+                    field2Obscure: _field2Obscure,
+                    fieldKeyboardType: _field1KeyboardType,
+                    onLoginClicked: _onLoginClicked,
+                  ),
+                if (_isLoggedIn) ...[
+                  TimingSelector(
+                    selectedMinutes: _intervalMinutes,
+                    onChanged: _saveInterval,
+                  ),
+                  const GradeActions(),
+                  const SizedBox(height: 8),
+                  if (_lastUpdated != null)
+                    Text(
+                      _lastUpdatedLabel,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.45),
+                        fontSize: 12,
+                        fontStyle: FontStyle.italic,
+                      ),
                     ),
-                  ),
-                const SizedBox(height: 10),
-                if (_averageResult != null) ...[
-                  AverageBadge(averageResult: _averageResult!),
-                  const SizedBox(height: 15),
+                  const SizedBox(height: 10),
+                  if (_averageResult != null) ...[
+                    AverageBadge(averageResult: _averageResult!),
+                    const SizedBox(height: 15),
+                  ],
+                  if (_isLoading && !_isPulling)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      ),
+                    ),
+                  if (_grades != null) GradesList(grades: _grades!),
                 ],
-                if (_isLoading && !_isPulling)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 20),
-                    child: Center(child: CircularProgressIndicator(color: Colors.white)),
-                  ),
-                if (_grades != null)
-                  GradesList(grades: _grades!),
               ],
-            ],
+            ),
           ),
         ),
       ),

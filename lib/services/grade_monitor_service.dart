@@ -20,8 +20,8 @@ class GradeMonitorService {
 
   final Function(String title, String body)? onStatusUpdate;
 
-  static const int persistentNotifId    = 1001;
-  static const int gradeAlertNotifId    = 1002;
+  static const int persistentNotifId = 1001;
+  static const int gradeAlertNotifId = 1002;
   static const String prefLastCountKey = "last_grade_count";
 
   static const String prefWakeCounterKey = 'fcm_wake_counter';
@@ -40,7 +40,7 @@ class GradeMonitorService {
     return (intervalMinutes / 30).round();
   }
 
-  Future<void> _ensureInit() async {
+  Future _ensureInit() async {
     if (_initialized) return;
     final prefs = await SharedPreferences.getInstance();
     _university = prefs.getString(UniversityPickerPage.prefKey) ?? 'TU';
@@ -48,7 +48,7 @@ class GradeMonitorService {
     _initialized = true;
   }
 
-  Future checkOnce() async {
+  Future<Map<String, dynamic>> checkOnce() async {
     try {
       await _ensureInit();
 
@@ -70,22 +70,34 @@ class GradeMonitorService {
           '⏳ Изчакване',
           '$time | Интервал: ${intervalMinutes} мин | Остават още $remaining събуждания',
         );
-        return;
+
+        return {
+          'status': 'waiting',
+          'info': 'remaining_wakes:$remaining',
+          'intervalMinutes': intervalMinutes,
+          'wakeCounter': wakeCounter,
+          'requiredWakeCount': requiredWakeCount,
+        };
       }
 
       await prefs.setInt(prefWakeCounterKey, 0);
       await prefs.setString(prefLastActualCheckAtKey, DateTime.now().toIso8601String());
 
-      await _checkGrades();
+      return await _checkGrades();
     } catch (e) {
       _updateStatus('❌ Грешка при проверка', e.toString());
       try {
-        NotificationService.showAlert(
+        await NotificationService.showAlert(
           gradeAlertNotifId,
           'Грешка при проверка',
           e.toString(),
         );
       } catch (_) {}
+
+      return {
+        'status': 'error',
+        'info': e.toString(),
+      };
     }
   }
 
@@ -97,7 +109,7 @@ class GradeMonitorService {
     }
   }
 
-  Future<void> _checkGrades() async {
+  Future<Map<String, dynamic>> _checkGrades() async {
     await _ensureInit();
 
     try {
@@ -116,8 +128,14 @@ class GradeMonitorService {
           '✅ Активно следене',
           'Първа проверка: $time | Оценки: $currentCount',
         );
+
+        return {
+          'status': 'initialized',
+          'info': 'first_check',
+          'currentCount': currentCount,
+        };
       } else if (currentCount > lastGradeCount) {
-        int newGrades     = currentCount - lastGradeCount;
+        int newGrades = currentCount - lastGradeCount;
         int previousCount = lastGradeCount;
         await prefs.setInt(prefLastCountKey, currentCount);
 
@@ -132,8 +150,20 @@ class GradeMonitorService {
         );
 
         try {
-          NotificationService.showAlert(gradeAlertNotifId, '🎓 Нова оценка!', alertBody);
+          await NotificationService.showAlert(
+            gradeAlertNotifId,
+            '🎓 Нова оценка!',
+            alertBody,
+          );
         } catch (_) {}
+
+        return {
+          'status': 'new_grade',
+          'info': 'new_grades:$newGrades',
+          'previousCount': previousCount,
+          'currentCount': currentCount,
+          'newGrades': newGrades,
+        };
       } else {
         await prefs.setInt(prefLastCountKey, currentCount);
 
@@ -145,16 +175,28 @@ class GradeMonitorService {
           '✅ Няма промяна',
           'Проверено: $time | Оценки: $currentCount | Интервал: ${intervalMinutes} мин',
         );
+
+        return {
+          'status': 'no_change',
+          'info': 'count:$currentCount',
+          'currentCount': currentCount,
+          'intervalMinutes': intervalMinutes,
+        };
       }
     } catch (e) {
       String time = DateFormat('HH:mm:ss').format(DateTime.now());
       _updateStatus('❌ Грешка при проверка', '$time | $e');
+
+      return {
+        'status': 'error',
+        'info': e.toString(),
+      };
     }
   }
 
   Duration timeUntilNextCheck(int intervalMinutes) {
     final int totalSeconds = intervalMinutes * 60;
-    final int jitterSeconds = _rng.nextInt(241) - 120; // ±2 min jitter
+    final int jitterSeconds = _rng.nextInt(241) - 120;
     return Duration(seconds: totalSeconds + jitterSeconds);
   }
 
@@ -163,17 +205,14 @@ class GradeMonitorService {
     return _university == 'SU' ? _countSuGrades(html) : _countTuGrades(html);
   }
 
-  /// TU — counts occurrences of "оценк[аи]" in the HTML.
   int _countTuGrades(String html) {
     final pattern = RegExp(r'oценк[аи]', caseSensitive: false);
     return pattern.allMatches(html).length;
   }
 
-  /// SU — counts _lblMark spans that contain an actual numeric grade.
-  /// Empty spans (subject not yet graded) are ignored.
   int _countSuGrades(String html) {
     final pattern = RegExp(
-      r'_lblMark">(\d[\d.]*)<\/span>',
+      r'_lblMark\">(\d[\d.]*)<\/span>',
       caseSensitive: false,
     );
     return pattern.allMatches(html).length;

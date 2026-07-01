@@ -110,10 +110,10 @@ class NotificationService {
       'grade_monitor_channel',
       'Следене на оценки',
       channelDescription: 'Показва текущия статус на следенето',
-      importance: Importance.low,
-      priority: Priority.low,
-      ongoing: true,
-      autoCancel: false,
+      importance: Importance.high,
+      priority: Priority.high,
+      ongoing: false,
+      autoCancel: true,
       showWhen: true,
       actions: [
         // AndroidNotificationAction(

@@ -30,14 +30,16 @@ class GradeMonitorViewModel extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
 
     if (_isMonitoring) {
+      _isMonitoring = false;
+      notifyListeners();
       await FcmService.unregister();
       await NotificationService.cancel(GradeMonitorService.persistentNotifId);
       await prefs.setBool(_prefMonitoringKey, false);
-      _isMonitoring = false;
     } else {
+      _isMonitoring = true;
+      notifyListeners();
       await FcmService.register();
       await prefs.setBool(_prefMonitoringKey, true);
-      _isMonitoring = true;
       await FcmService.runCheckNow();
     }
     notifyListeners();

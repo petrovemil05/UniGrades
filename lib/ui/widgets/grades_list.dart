@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:unigrades/models/grade_item.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class GradesList extends StatefulWidget {
   final List<GradeItem> grades;
@@ -11,15 +12,32 @@ class GradesList extends StatefulWidget {
 }
 
 class _GradesListState extends State<GradesList> {
-  late final Set<int> _expandedSemesters;
+  static const String _prefKey = 'collapsed_semesters';
+
+  // Keyed by semester name, NOT index
+  late Set<String> _collapsedSemesters;
+  bool _prefsLoaded = false;
 
   @override
   void initState() {
     super.initState();
-    _expandedSemesters = {
-      for (int i = 0; i < widget.grades.length; i++)
-        if (widget.grades[i].isSemester) i
-    };
+    _collapsedSemesters = {};
+    _loadCollapsedState();
+  }
+
+  Future<void> _loadCollapsedState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getStringList(_prefKey) ?? [];
+    if (!mounted) return;
+    setState(() {
+      _collapsedSemesters = saved.toSet();
+      _prefsLoaded = true;
+    });
+  }
+
+  Future<void> _saveCollapsedState() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_prefKey, _collapsedSemesters.toList());
   }
 
   Color _getGradeColor(String colorName) {
@@ -34,23 +52,25 @@ class _GradesListState extends State<GradesList> {
     }
   }
 
-  int _ownerSemesterIndex(int gradeIndex) {
+  String? _ownerSemesterName(int gradeIndex) {
     for (int i = gradeIndex - 1; i >= 0; i--) {
-      if (widget.grades[i].isSemester) return i;
+      if (widget.grades[i].isSemester) return widget.grades[i].grade;
     }
-    return -1;
+    return null;
   }
 
   bool _isVisible(int index) {
     final item = widget.grades[index];
     if (item.isSemester) return true;
-    final owner = _ownerSemesterIndex(index);
-    if (owner == -1) return true;
-    return _expandedSemesters.contains(owner);
+    final owner = _ownerSemesterName(index);
+    if (owner == null) return true;
+    return !_collapsedSemesters.contains(owner);
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!_prefsLoaded) return const SizedBox.shrink();
+
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -60,9 +80,9 @@ class _GradesListState extends State<GradesList> {
 
         final item = widget.grades[index];
 
-        // ── Semester header ───────────────────────────────────────────────
+        // ── Semester header ──────────────────────────────────────────────
         if (item.isSemester) {
-          final isExpanded = _expandedSemesters.contains(index);
+          final isExpanded = !_collapsedSemesters.contains(item.grade);
           return Padding(
             padding: const EdgeInsets.only(top: 12, bottom: 0),
             child: InkWell(
@@ -72,11 +92,12 @@ class _GradesListState extends State<GradesList> {
               onTap: () {
                 setState(() {
                   if (isExpanded) {
-                    _expandedSemesters.remove(index);
+                    _collapsedSemesters.add(item.grade);
                   } else {
-                    _expandedSemesters.add(index);
+                    _collapsedSemesters.remove(item.grade);
                   }
                 });
+                _saveCollapsedState();
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -111,14 +132,17 @@ class _GradesListState extends State<GradesList> {
           );
         }
 
-        // ── Grade row ─────────────────────────────────────────────────────
-        final owner       = _ownerSemesterIndex(index);
-        final hasSemester = owner != -1;
+        // ── Grade row ────────────────────────────────────────────────────
+        final ownerName = _ownerSemesterName(index);
+        final hasSemester = ownerName != null;
 
         bool isLastVisible = true;
         for (int i = index + 1; i < widget.grades.length; i++) {
           if (widget.grades[i].isSemester) break;
-          if (_isVisible(i)) { isLastVisible = false; break; }
+          if (_isVisible(i)) {
+            isLastVisible = false;
+            break;
+          }
         }
 
         final borderRadius = hasSemester
@@ -133,8 +157,8 @@ class _GradesListState extends State<GradesList> {
             color: const Color(0xFF1E1E1E),
             borderRadius: borderRadius,
             border: Border(
-              left:   const BorderSide(color: Color(0xFF444444)),
-              right:  const BorderSide(color: Color(0xFF444444)),
+              left:  const BorderSide(color: Color(0xFF444444)),
+              right: const BorderSide(color: Color(0xFF444444)),
               bottom: isLastVisible
                   ? const BorderSide(color: Color(0xFF444444))
                   : BorderSide.none,

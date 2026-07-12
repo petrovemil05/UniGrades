@@ -17,12 +17,15 @@ class GradeMonitorService {
 
   static const String prefIntervalKey = 'check_interval_minutes';
   static const int defaultIntervalMinutes = 30;
+  static const String prefNotificationModeKey = 'notification_mode';
+  static const String notificationModeAll = 'all_notifications';
+  static const String notificationModeNewOnly = 'new_grade_only';
 
   final Function(String title, String body)? onStatusUpdate;
 
   static const int persistentNotifId = 1001;
   static const int gradeAlertNotifId = 1002;
-  static const String prefLastCountKey = "last_grade_count";
+  static const String prefLastCountKey = 'last_grade_count';
 
   static const String prefWakeCounterKey = 'fcm_wake_counter';
   static const String prefLastActualCheckAtKey = 'last_actual_check_at';
@@ -48,13 +51,17 @@ class GradeMonitorService {
     _initialized = true;
   }
 
+  Future<String> _notificationMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(prefNotificationModeKey) ?? notificationModeAll;
+  }
+
   Future<Map<String, dynamic>> checkOnce() async {
     try {
       await _ensureInit();
 
       final prefs = await SharedPreferences.getInstance();
-      final int intervalMinutes =
-          prefs.getInt(prefIntervalKey) ?? defaultIntervalMinutes;
+      final int intervalMinutes = prefs.getInt(prefIntervalKey) ?? defaultIntervalMinutes;
 
       final int requiredWakeCount = _requiredWakeCount(intervalMinutes);
       int wakeCounter = prefs.getInt(prefWakeCounterKey) ?? 0;
@@ -66,10 +73,12 @@ class GradeMonitorService {
         final int remaining = requiredWakeCount - wakeCounter;
         final String time = DateFormat('HH:mm:ss').format(DateTime.now());
 
-        _updateStatus(
-          '⏳ Изчакване',
-          '$time | Интервал: ${intervalMinutes} мин | Остават още $remaining събуждания',
-        );
+        if (await _notificationMode() == notificationModeAll) {
+          _updateStatus(
+            '⏳ Изчакване',
+            '$time | Интервал: ${intervalMinutes} мин | Остават още $remaining събуждания',
+          );
+        }
 
         return {
           'status': 'waiting',
@@ -114,7 +123,10 @@ class GradeMonitorService {
 
     try {
       String time = DateFormat('HH:mm:ss').format(DateTime.now());
-      _updateStatus('⏳ Проверявам…', time);
+      final notificationMode = await _notificationMode();
+      if (notificationMode == notificationModeAll) {
+        _updateStatus('⏳ Проверявам…', time);
+      }
 
       final prefs = await SharedPreferences.getInstance();
       int lastGradeCount = prefs.getInt(prefLastCountKey) ?? -1;
@@ -124,17 +136,19 @@ class GradeMonitorService {
 
       if (lastGradeCount == -1) {
         await prefs.setInt(prefLastCountKey, currentCount);
-        _updateStatus(
-          '✅ Активно следене',
-          'Първа проверка: $time | Оценки: $currentCount',
-        );
+        if (notificationMode == notificationModeAll) {
+          _updateStatus(
+            '✅ Активно следене',
+            'Първа проверка: $time | Оценки: $currentCount',
+          );
+        }
 
         return {
           'status': 'initialized',
           'info': 'first_check',
           'currentCount': currentCount,
         };
-      } else if (currentCount > lastGradeCount) {
+      } else if (currentCount == lastGradeCount) {
         int newGrades = currentCount - lastGradeCount;
         int previousCount = lastGradeCount;
         await prefs.setInt(prefLastCountKey, currentCount);
@@ -144,18 +158,18 @@ class GradeMonitorService {
             ? 'Получихте нова оценка в $source!'
             : 'Получихте $newGrades нови оценки в $source!';
 
-        _updateStatus(
-          '🎓 Нова оценка засечена!',
-          '$time | Беше: $previousCount → Сега: $currentCount',
-        );
-
-        try {
-          await NotificationService.showAlert(
-            gradeAlertNotifId,
-            '🎓 Нова оценка!',
-            alertBody,
+        if (notificationMode == notificationModeAll) {
+          _updateStatus(
+            '🎓 Нова оценка засечена!',
+            '$time | Беше: $previousCount → Сега: $currentCount',
           );
-        } catch (_) {}
+        }
+
+        await NotificationService.showAlert(
+          gradeAlertNotifId,
+          '🎓 Нова оценка!',
+          alertBody,
+        );
 
         return {
           'status': 'new_grade',
@@ -167,20 +181,18 @@ class GradeMonitorService {
       } else {
         await prefs.setInt(prefLastCountKey, currentCount);
 
-        final int intervalMinutes =
-            prefs.getInt(GradeMonitorService.prefIntervalKey) ??
-                GradeMonitorService.defaultIntervalMinutes;
-
-        _updateStatus(
-          '✅ Няма промяна',
-          'Проверено: $time | Оценки: $currentCount | Интервал: ${intervalMinutes} мин',
-        );
+        if (notificationMode == notificationModeAll) {
+          final int intervalMinutes = prefs.getInt(GradeMonitorService.prefIntervalKey) ?? GradeMonitorService.defaultIntervalMinutes;
+          _updateStatus(
+            '✅ Няма промяна',
+            'Проверено: $time | Оценки: $currentCount | Интервал: ${intervalMinutes} мин',
+          );
+        }
 
         return {
           'status': 'no_change',
           'info': 'count:$currentCount',
           'currentCount': currentCount,
-          'intervalMinutes': intervalMinutes,
         };
       }
     } catch (e) {
@@ -211,10 +223,7 @@ class GradeMonitorService {
   }
 
   int _countSuGrades(String html) {
-    final pattern = RegExp(
-      r'_lblMark\">(\d[\d.]*)<\/span>',
-      caseSensitive: false,
-    );
+    final pattern = RegExp(r'_lblMark">(\d[\d.]*)<\/span>', caseSensitive: false);
     return pattern.allMatches(html).length;
   }
 }

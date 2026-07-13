@@ -148,7 +148,7 @@ class GradeMonitorService {
           'info': 'first_check',
           'currentCount': currentCount,
         };
-      } else if (currentCount == lastGradeCount) {
+      } else if (currentCount > lastGradeCount) {
         int newGrades = currentCount - lastGradeCount;
         int previousCount = lastGradeCount;
         await prefs.setInt(prefLastCountKey, currentCount);

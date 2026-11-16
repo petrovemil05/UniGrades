@@ -11,7 +11,7 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 }
 
 class FcmService {
-  static const String _serverUrl = 'https://uni-grades-server.onrender.com';
+  static const String _serverUrl = 'https://unigrades.bgsrv.eu';
   static const String _prefFcmTokenKey = 'fcm_token';
 
   static final _localNotif = FlutterLocalNotificationsPlugin();

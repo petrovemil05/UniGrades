@@ -15,6 +15,7 @@ import 'package:unigrades/ui/widgets/login_card.dart';
 import 'package:unigrades/ui/widgets/average_badge.dart';
 import 'package:unigrades/ui/widgets/grades_list.dart';
 import 'package:unigrades/ui/widgets/grade_actions.dart';
+import 'package:unigrades/ui/tu_logged_in_webview_page.dart';
 import '../models/average_result.dart';
 import '../services/grade_monitor_service.dart';
 import '../services/fcm_service.dart';
@@ -224,6 +225,19 @@ class _MainPageState extends State<MainPage> {
     if (updateInfo != null && mounted) UpdateDialog.show(context, updateInfo);
   }
 
+  Future<void> _openLoggedInSite() async {
+    if (_university != 'TU') return;
+    final fnum = _user1Controller.text.trim();
+    final egn = _user2Controller.text.trim();
+    if (fnum.isEmpty || egn.isEmpty) return;
+    if (!mounted) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => TuLoggedInWebViewPage(fnum: fnum, egn: egn),
+      ),
+    );
+  }
+
   String get _field1Hint    => _university == 'SU' ? 'Потребителско име' : 'Факултетен номер';
   String get _field2Hint    => _university == 'SU' ? 'Парола'            : 'ЕГН';
   bool   get _field2Obscure => _university == 'SU';
@@ -288,6 +302,12 @@ class _MainPageState extends State<MainPage> {
           ),
           actions: [
             if (_isLoggedIn)
+              if (_university == 'TU')
+                IconButton(
+                  icon: const Icon(Icons.web, color: Color(0xFF3498DB)),
+                  tooltip: 'ТУ сайт',
+                  onPressed: _openLoggedInSite,
+                ),
               IconButton(
                 icon: const Icon(Icons.refresh, color: Color(0xFF2ECC71)),
                 tooltip: 'Обнови',

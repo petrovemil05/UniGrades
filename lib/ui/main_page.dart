@@ -205,7 +205,16 @@ class _MainPageState extends State<MainPage> {
     setState(() { _isLoading = true; _isPulling = pulling; });
     try {
       final html   = await _api.getHtmlAsync(_user1Controller.text, _user2Controller.text);
+      print('HTML LENGTH: ${html.length}');
+      print('HAS ОЦЕНКА: ${html.toLowerCase().contains('оценк')}');
+      print('ОЦЕНКА COUNT: ${RegExp('оценк', caseSensitive: false).allMatches(html).length}');
+
+      print('HAS SUBJECT SPAN: ${RegExp(r'<span[^>]*>\s*<b>', caseSensitive: false).hasMatch(html)}');
+
+      print(html);
+
       final result = _parser.parse(html) as List<GradeItem>;
+
       setState(() {
         _grades        = result;
         _averageResult = _parser.calculateAverage(result) as AverageResult?;

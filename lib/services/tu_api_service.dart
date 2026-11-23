@@ -1,18 +1,20 @@
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'http_client_factory/http_client_factory.dart';
+import 'dart:convert';
 
 class TuApiService {
   final http.Client client = createHttpClient();
   final List<String> _cookies = [];
+  static const String webApiBaseUrl = 'http://localhost:3000';
 
   List<String> get cookies => List.unmodifiable(_cookies);
 
   final Map<String, String> _headers = {
     "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 OPR/131.0.0.0",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 OPR/131.0.0.0",
     "Accept":
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.9",
     "Upgrade-Insecure-Requests": "1",
     "Connection": "keep-alive",
@@ -45,39 +47,35 @@ class TuApiService {
       if (res.statusCode == 200) return res;
     } catch (_) {}
 
-    if (kIsWeb) {
-      try {
-        final proxyUrl =
-            'https://corsproxy.io/?${Uri.encodeComponent(uri.toString())}';
-        final proxyRes = await client.post(
-          Uri.parse(proxyUrl),
-          headers: reqHeaders,
-          body: body,
-        );
-        if (proxyRes.statusCode == 200) return proxyRes;
-      } catch (_) {}
-
-      try {
-        final aoUrl =
-            'https://api.allorigins.win/raw?url=${Uri.encodeComponent(uri.toString())}';
-        final aoRes = await client.post(
-          Uri.parse(aoUrl),
-          headers: reqHeaders,
-          body: body,
-        );
-        if (aoRes.statusCode == 200) return aoRes;
-      } catch (_) {}
-    }
 
     // Direct fallback attempt
     return await client.post(uri, headers: reqHeaders, body: body);
   }
 
-  Future<String> getHtmlAsync(
-    String fnum,
-    String egn, {
-    String deistvie = '1',
-  }) async {
+  Future<String> getHtmlAsync(String fnum,
+      String egn, {
+        String deistvie = '1',
+      }) async {
+    if (kIsWeb) {
+      final response = await client.post(
+        Uri.parse('$webApiBaseUrl/api/tu/grades'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'fnum': fnum,
+          'egn': egn,
+          'deistvie': deistvie,
+        }),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Could not load grades: ${response.statusCode}');
+      }
+
+      return response.body;
+    }
+
     const url = "https://e-university.tu-sofia.bg/ETUS/studenti/index.php";
 
     _cookies.clear();
@@ -93,7 +91,8 @@ class TuApiService {
       );
 
       if (loginResponse.statusCode != 200) {
-        throw Exception("Login failed with status: ${loginResponse.statusCode}");
+        throw Exception(
+            "Login failed with status: ${loginResponse.statusCode}");
       }
 
       final rawSetCookie = loginResponse.headers['set-cookie'];
@@ -119,7 +118,8 @@ class TuApiService {
       );
 
       if (dataResponse.statusCode != 200) {
-        throw Exception("Fetch data failed with status: ${dataResponse.statusCode}");
+        throw Exception(
+            "Fetch data failed with status: ${dataResponse.statusCode}");
       }
 
       return dataResponse.body;
@@ -131,6 +131,42 @@ class TuApiService {
       rethrow;
     }
   }
+
+  Future<String> _getHtmlFromBackend({
+    required String fnum,
+    required String egn,
+    required String deistvie,
+  }) async {
+    final client = http.Client();
+
+    try {
+      final login = await client.post(
+        Uri.parse('$webApiBaseUrl/api/tu/grades'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'fnum': fnum, 'egn': egn}),
+      );
+
+      if (login.statusCode != 200) {
+        throw Exception('Login failed');
+      }
+
+      final grades = await client.post(
+        Uri.parse('$webApiBaseUrl/api/tu/grades'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'deistvie': deistvie}),
+      );
+
+      if (grades.statusCode != 200) {
+        throw Exception('Could not load grades');
+      }
+
+      return grades.body;
+    } finally {
+      client.close();
+    }
+  }
+
+
 
   List<String> _extractCookiePairs(String header) {
     final result = <String>[];

@@ -12,9 +12,9 @@ class UpdateService {
   static const String _versionUrl = 'https://jnshort.com/version';
 
   static Future<UpdateInfo?> checkForUpdate() async {
+    if (kIsWeb) return null;
     try {
       final dio = Dio();
-      // Add a timestamp to bypass caching if necessary
       final response = await dio.get(
         _versionUrl,
         options: Options(responseType: ResponseType.json),
@@ -27,12 +27,11 @@ class UpdateService {
         final currentVersion = packageInfo.version;
         final currentBuild = int.tryParse(packageInfo.buildNumber) ?? 0;
 
-        // Simple version comparison logic
-        // You can use pub_semver package for more complex cases
         bool isNewer = false;
         if (_isVersionNewer(remoteInfo.version, currentVersion)) {
           isNewer = true;
-        } else if (remoteInfo.version == currentVersion && remoteInfo.build > currentBuild) {
+        } else if (remoteInfo.version == currentVersion &&
+            remoteInfo.build > currentBuild) {
           isNewer = true;
         }
 
@@ -47,8 +46,10 @@ class UpdateService {
   }
 
   static bool _isVersionNewer(String remote, String local) {
-    List<int> remoteParts = remote.split('.').map((e) => int.tryParse(e) ?? 0).toList();
-    List<int> localParts = local.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+    List<int> remoteParts =
+        remote.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+    List<int> localParts =
+        local.split('.').map((e) => int.tryParse(e) ?? 0).toList();
 
     for (int i = 0; i < remoteParts.length; i++) {
       if (i >= localParts.length) return true;
@@ -63,9 +64,12 @@ class UpdateService {
     required Function(double progress) onProgress,
     required Function(String error) onError,
   }) async {
+    if (kIsWeb) {
+      onError('Updates are not supported on Web. Please refresh your browser.');
+      return;
+    }
     try {
-      // 1. Check/Request Permission (Android 8+)
-      if (Platform.isAndroid) {
+      if (!kIsWeb && Platform.isAndroid) {
         var status = await Permission.requestInstallPackages.status;
         if (status.isDenied) {
           status = await Permission.requestInstallPackages.request();
@@ -77,10 +81,10 @@ class UpdateService {
       }
 
       final dio = Dio();
-      final dir = await getExternalStorageDirectory() ?? await getApplicationDocumentsDirectory();
+      final dir = await getExternalStorageDirectory() ??
+          await getApplicationDocumentsDirectory();
       final savePath = '${dir.path}/app-arm64-v8a-release.apk';
 
-      // Delete old file if exists
       final file = File(savePath);
       if (await file.exists()) {
         await file.delete();
@@ -102,7 +106,6 @@ class UpdateService {
         },
       );
 
-      // 2. Install
       final result = await OpenFilex.open(savePath);
       if (result.type != ResultType.done) {
         onError('Could not launch installer: ${result.message}');

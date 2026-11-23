@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,84 +18,94 @@ class FcmService {
   static final _localNotif = FlutterLocalNotificationsPlugin();
 
   static Future init() async {
-    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    try {
+      if (!kIsWeb) {
+        FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-    const channel = AndroidNotificationChannel(
-      'grade_alerts',
-      'Нови оценки',
-      description: 'Известия при нова оценка',
-      importance: Importance.high,
-    );
+        const channel = AndroidNotificationChannel(
+          'grade_alerts',
+          'Нови оценки',
+          description: 'Известия при нова оценка',
+          importance: Importance.high,
+        );
 
-    await _localNotif
-        .resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(channel);
+        await _localNotif
+            .resolvePlatformSpecificImplementation<
+                AndroidFlutterLocalNotificationsPlugin>()
+            ?.createNotificationChannel(channel);
 
-    await _localNotif.initialize(
-      settings: const InitializationSettings(
-        android: AndroidInitializationSettings('ic_icon_circle_nobg'),
-        iOS: DarwinInitializationSettings(
-          requestAlertPermission: false,
-          requestBadgePermission: false,
-          requestSoundPermission: false,
-        ),
-      ),
-    );
-
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
-      final notification = message.notification;
-
-      if (notification != null) {
-        await _localNotif.show(
-          id: notification.hashCode,
-          title: notification.title,
-          body: notification.body,
-          notificationDetails: const NotificationDetails(
-            android: AndroidNotificationDetails(
-              'grade_alerts',
-              'Нови оценки',
-              channelDescription: 'Известия при нова оценка',
-              importance: Importance.high,
-              priority: Priority.high,
-              icon: 'ic_icon_circle_nobg',
-            ),
-            iOS: DarwinNotificationDetails(
-              presentAlert: true,
-              presentBadge: true,
-              presentSound: true,
+        await _localNotif.initialize(
+          settings: const InitializationSettings(
+            android: AndroidInitializationSettings('ic_icon_circle_nobg'),
+            iOS: DarwinInitializationSettings(
+              requestAlertPermission: false,
+              requestBadgePermission: false,
+              requestSoundPermission: false,
             ),
           ),
         );
+
+        FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
+          final notification = message.notification;
+
+          if (notification != null) {
+            await _localNotif.show(
+              id: notification.hashCode,
+              title: notification.title,
+              body: notification.body,
+              notificationDetails: const NotificationDetails(
+                android: AndroidNotificationDetails(
+                  'grade_alerts',
+                  'Нови оценки',
+                  channelDescription: 'Известия при нова оценка',
+                  importance: Importance.high,
+                  priority: Priority.high,
+                  icon: 'ic_icon_circle_nobg',
+                ),
+                iOS: DarwinNotificationDetails(
+                  presentAlert: true,
+                  presentBadge: true,
+                  presentSound: true,
+                ),
+              ),
+            );
+          }
+
+          await handleCheckGradesMessage(message);
+        });
+
+        FirebaseMessaging.onMessageOpenedApp.listen((_) {});
+
+        await FirebaseMessaging.instance.requestPermission(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+
+        FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString(_prefFcmTokenKey, newToken);
+          await _sendRegistration(newToken);
+        });
       }
-
-      await handleCheckGradesMessage(message);
-    });
-
-    FirebaseMessaging.onMessageOpenedApp.listen((_) {});
-
-    await FirebaseMessaging.instance.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
-
-    FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_prefFcmTokenKey, newToken);
-      await _sendRegistration(newToken);
-    });
+    } catch (e) {
+      debugPrint('FcmService init error: $e');
+    }
   }
 
   static Future register() async {
-    final token = await FirebaseMessaging.instance.getToken();
-    if (token == null) return;
+    try {
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token == null) return;
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_prefFcmTokenKey, token);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_prefFcmTokenKey, token);
 
-    print('FCM Token: $token');
-    await _sendRegistration(token);
+      debugPrint('FCM Token: $token');
+      await _sendRegistration(token);
+    } catch (e) {
+      debugPrint('FcmService register error: $e');
+    }
   }
 
   static Future runCheckNow() async {
@@ -175,14 +186,16 @@ class FcmService {
   }
 
   static Future _sendRegistration(String token) async {
-    await http.post(
-      Uri.parse('$_serverUrl/register'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'fcmToken': token,
-        'platform': 'android',
-      }),
-    );
+    try {
+      await http.post(
+        Uri.parse('$_serverUrl/register'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'fcmToken': token,
+          'platform': kIsWeb ? 'web' : 'android',
+        }),
+      );
+    } catch (_) {}
   }
 
   static Future _sendAck({
@@ -210,11 +223,13 @@ class FcmService {
     final token = prefs.getString(_prefFcmTokenKey);
     if (token == null) return;
 
-    await http.post(
-      Uri.parse('$_serverUrl/unregister'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'fcmToken': token}),
-    );
+    try {
+      await http.post(
+        Uri.parse('$_serverUrl/unregister'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'fcmToken': token}),
+      );
+    } catch (_) {}
 
     await prefs.remove(_prefFcmTokenKey);
   }

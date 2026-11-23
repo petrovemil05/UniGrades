@@ -1,11 +1,11 @@
 {
-    "name": "e_student",
-    "short_name": "e_student",
+    "name": "UniGrades",
+    "short_name": "UniGrades",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#121212",
+    "theme_color": "#121212",
+    "description": "Следене на оценки за ТУ и СУ",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -1,6 +1,7 @@
-import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:provider/provider.dart';
 import 'services/fcm_service.dart';
 import 'viewmodels/grade_monitor_viewmodel.dart';
@@ -8,10 +9,17 @@ import 'ui/main_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-  final token = await FirebaseMessaging.instance.getToken();
-  print('FCM Token: $token');
-  await FcmService.init();  // initialize FCM + local notification channel
+  if (!kIsWeb) {
+    try {
+      await Firebase.initializeApp();
+      final token = await FirebaseMessaging.instance.getToken();
+      debugPrint('FCM Token: $token');
+      await FcmService.init();
+    } catch (e) {
+      debugPrint('Initialization error: $e');
+    }
+  }
+
   runApp(
     ChangeNotifierProvider(
       create: (_) => GradeMonitorViewModel(),

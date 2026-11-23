@@ -2,9 +2,11 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
+import 'web_notification_factory/web_notification_factory.dart';
 
 @pragma('vm:entry-point')
 void notificationTapBackground(NotificationResponse response) {
+  if (kIsWeb) return;
   debugPrint('BACKGROUND ACTION: ${response.actionId}');
 
   final service = FlutterBackgroundService();
@@ -18,25 +20,26 @@ void notificationTapBackground(NotificationResponse response) {
 
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _notificationsPlugin =
-  FlutterLocalNotificationsPlugin();
+      FlutterLocalNotificationsPlugin();
 
   static bool _isInitialized = false;
 
   static Future<void> init() async {
+    if (kIsWeb) return;
     if (_isInitialized) return;
 
     const AndroidInitializationSettings initializationSettingsAndroid =
-    AndroidInitializationSettings('ic_icon_circle_nobg');
+        AndroidInitializationSettings('ic_icon_circle_nobg');
 
     final DarwinInitializationSettings initializationSettingsIOS =
-    DarwinInitializationSettings(
+        DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
       requestSoundPermission: true,
     );
 
     final InitializationSettings initializationSettings =
-    InitializationSettings(
+        InitializationSettings(
       android: initializationSettingsAndroid,
       iOS: initializationSettingsIOS,
     );
@@ -45,6 +48,7 @@ class NotificationService {
       await _notificationsPlugin.initialize(
         settings: initializationSettings,
         onDidReceiveNotificationResponse: (NotificationResponse response) async {
+          if (kIsWeb) return;
           debugPrint('FOREGROUND ACTION: ${response.actionId}');
 
           final service = FlutterBackgroundService();
@@ -56,10 +60,12 @@ class NotificationService {
           }
         },
         onDidReceiveBackgroundNotificationResponse:
-        notificationTapBackground,
+            notificationTapBackground,
       ).timeout(const Duration(seconds: 3));
 
-      final androidPlugin = _notificationsPlugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      final androidPlugin = _notificationsPlugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
       if (androidPlugin != null) {
         await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
           'grade_monitor_channel',
@@ -87,16 +93,25 @@ class NotificationService {
   }
 
   static Future<void> requestPermissions() async {
+    if (kIsWeb) {
+      await requestWebNotificationPermission();
+      return;
+    }
     try {
-      if (Platform.isAndroid) {
-        final androidPlugin = _notificationsPlugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      if (!kIsWeb && Platform.isAndroid) {
+        final androidPlugin = _notificationsPlugin
+            .resolvePlatformSpecificImplementation<
+                AndroidFlutterLocalNotificationsPlugin>();
         if (androidPlugin != null) {
           await androidPlugin.requestNotificationsPermission();
         }
-      } else if (Platform.isIOS) {
-        final iosPlugin = _notificationsPlugin.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>();
+      } else if (!kIsWeb && Platform.isIOS) {
+        final iosPlugin = _notificationsPlugin
+            .resolvePlatformSpecificImplementation<
+                IOSFlutterLocalNotificationsPlugin>();
         if (iosPlugin != null) {
-          await iosPlugin.requestPermissions(alert: true, badge: true, sound: true);
+          await iosPlugin.requestPermissions(
+              alert: true, badge: true, sound: true);
         }
       }
     } catch (e) {
@@ -105,8 +120,12 @@ class NotificationService {
   }
 
   static Future<void> showPersistent(int id, String title, String body) async {
+    if (kIsWeb) {
+      await showWebNotification(title, body);
+      return;
+    }
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
-    AndroidNotificationDetails(
+        AndroidNotificationDetails(
       'grade_monitor_channel',
       'Следене на оценки',
       channelDescription: 'Показва текущия статус на следенето',
@@ -115,21 +134,11 @@ class NotificationService {
       ongoing: false,
       autoCancel: true,
       showWhen: true,
-      actions: [
-        // AndroidNotificationAction(
-        //   'check_now',
-        //   'Провери сега',
-        //   showsUserInterface: true,
-        // ),
-        // AndroidNotificationAction(
-        //   'stop_monitoring',
-        //   'Спри',
-        //   showsUserInterface: true,
-        // ),
-      ],
+      actions: [],
     );
 
-    const DarwinNotificationDetails iOSPersistentDetails = DarwinNotificationDetails(
+    const DarwinNotificationDetails iOSPersistentDetails =
+        DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: false,
       presentSound: false,
@@ -147,8 +156,12 @@ class NotificationService {
   }
 
   static Future<void> showAlert(int id, String title, String body) async {
+    if (kIsWeb) {
+      await showWebNotification(title, body);
+      return;
+    }
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
-    AndroidNotificationDetails(
+        AndroidNotificationDetails(
       'grade_alert_channel',
       'Нови оценки',
       channelDescription: 'Известия за нови оценки',
@@ -176,6 +189,7 @@ class NotificationService {
   }
 
   static Future<void> cancel(int id) async {
+    if (kIsWeb) return;
     await _notificationsPlugin.cancel(id: id);
   }
 }

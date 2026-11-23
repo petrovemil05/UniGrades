@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:unigrades/ui/widgets/timing_selector.dart';
 import 'package:flutter/material.dart';
@@ -46,8 +47,6 @@ class _MainPageState extends State<MainPage> {
   bool _isCheckingStartup = true;
 
   int _intervalMinutes = 30;
-
-  static const String _prefDisclaimerKey = 'disclaimer_accepted';
 
   @override
   void initState() {
@@ -162,13 +161,17 @@ class _MainPageState extends State<MainPage> {
   Future<void> _onLogoutClicked() async {
     await FcmService.unregister();
 
-    final service = FlutterBackgroundService();
-    final prefs = await SharedPreferences.getInstance();
-
-    final isRunning = await service.isRunning();
-    if (isRunning) {
-      service.invoke("stopService");
+    if (!kIsWeb) {
+      try {
+        final service = FlutterBackgroundService();
+        final isRunning = await service.isRunning();
+        if (isRunning) {
+          service.invoke("stopService");
+        }
+      } catch (_) {}
     }
+
+    final prefs = await SharedPreferences.getInstance();
 
     await prefs.remove("fnum");
     await prefs.remove("egn");
@@ -196,8 +199,6 @@ class _MainPageState extends State<MainPage> {
     });
 
     if (!mounted) return;
-
-
   }
 
   Future<void> _loadGrades({bool pulling = false}) async {
@@ -301,7 +302,7 @@ class _MainPageState extends State<MainPage> {
             ),
           ),
           actions: [
-            if (_isLoggedIn)
+            if (_isLoggedIn) ...[
               if (_university == 'TU')
                 IconButton(
                   icon: const Icon(Icons.web, color: Color(0xFF3498DB)),
@@ -313,6 +314,7 @@ class _MainPageState extends State<MainPage> {
                 tooltip: 'Обнови',
                 onPressed: _isLoading ? null : _loadGrades,
               ),
+            ],
           ],
         ),
         body: RefreshIndicator(
@@ -322,50 +324,55 @@ class _MainPageState extends State<MainPage> {
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(15),
-            child: Column(
-              children: [
-                const SizedBox(height: 15),
-                if (!_isLoggedIn)
-                  LoginCard(
-                    user1Controller: _user1Controller,
-                    user2Controller: _user2Controller,
-                    field1Hint: _field1Hint,
-                    field2Hint: _field2Hint,
-                    field2Obscure: _field2Obscure,
-                    fieldKeyboardType: _field1KeyboardType,
-                    onLoginClicked: _onLoginClicked,
-                  ),
-                if (_isLoggedIn) ...[
-                  TimingSelector(
-                    selectedMinutes: _intervalMinutes,
-                    onChanged: _saveInterval,
-                  ),
-                  const GradeActions(),
-                  const SizedBox(height: 8),
-                  if (_lastUpdated != null)
-                    Text(
-                      _lastUpdatedLabel,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.45),
-                        fontSize: 12,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  const SizedBox(height: 10),
-                  if (_averageResult != null) ...[
-                    AverageBadge(averageResult: _averageResult!),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: Column(
+                  children: [
                     const SizedBox(height: 15),
-                  ],
-                  if (_isLoading && !_isPulling)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 20),
-                      child: Center(
-                        child: CircularProgressIndicator(color: Colors.white),
+                    if (!_isLoggedIn)
+                      LoginCard(
+                        user1Controller: _user1Controller,
+                        user2Controller: _user2Controller,
+                        field1Hint: _field1Hint,
+                        field2Hint: _field2Hint,
+                        field2Obscure: _field2Obscure,
+                        fieldKeyboardType: _field1KeyboardType,
+                        onLoginClicked: _onLoginClicked,
                       ),
-                    ),
-                  if (_grades != null) GradesList(grades: _grades!),
-                ],
-              ],
+                    if (_isLoggedIn) ...[
+                      TimingSelector(
+                        selectedMinutes: _intervalMinutes,
+                        onChanged: _saveInterval,
+                      ),
+                      const GradeActions(),
+                      const SizedBox(height: 8),
+                      if (_lastUpdated != null)
+                        Text(
+                          _lastUpdatedLabel,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.45),
+                            fontSize: 12,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      const SizedBox(height: 10),
+                      if (_averageResult != null) ...[
+                        AverageBadge(averageResult: _averageResult!),
+                        const SizedBox(height: 15),
+                      ],
+                      if (_isLoading && !_isPulling)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 20),
+                          child: Center(
+                            child: CircularProgressIndicator(color: Colors.white),
+                          ),
+                        ),
+                      if (_grades != null) GradesList(grades: _grades!),
+                    ],
+                  ],
+                ),
+              ),
             ),
           ),
         ),

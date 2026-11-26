@@ -10,7 +10,8 @@ firebase.initializeApp({
   appId: '1:1047197774233:web:ce95558cb3615bfdb6a308'
 });
 
-const messaging = firebase.messaging();
+// Needed so the token can be created. No onBackgroundMessage: the push listener below is the only checker.
+firebase.messaging();
 
 // Same value as TuApiService.webApiBaseUrl. Must be public HTTPS in production.
 const BACKEND_URL = 'http://localhost:3000';
@@ -85,13 +86,21 @@ async function quietNotice() {
   list.forEach((n) => n.close());
 }
 
+function countGrades(html, university) {
+  if (university === 'SU') {
+    return (html.match(/_lblMark">(\d[\d.]*)<\/span>/gi) || []).length;
+  }
+  return (html.match(/[o\u043E]\u0446\u0435\u043D\u043A[\u0430\u0438]/gi) || []).length;
+}
+
 async function runGradeCheck(jobId) {
-  const fnum = await idbGet('fnum');
-  const egn = await idbGet('egn');
+  const university = (await idbGet('university')) || 'TU';
+  const user1 = await idbGet('fnum');
+  const user2 = await idbGet('egn');
   const token = (await idbGet('fcm_token')) || '';
   const mode = (await idbGet('notification_mode')) || 'all_notifications';
 
-  if (!fnum || !egn) return ack(jobId, token, 'skipped', 'missing_credentials');
+  if (!user1 || !user2) return ack(jobId, token, 'skipped', 'missing_credentials');
 
   const interval = await num('interval', 30);
   const required = interval <= 30 ? 1 : Math.round(interval / 30);
@@ -103,16 +112,24 @@ async function runGradeCheck(jobId) {
   await idbSet('wake_counter', '0');
 
   try {
-    const res = await fetch(`${BACKEND_URL}/api/tu/grades`, {
+    const isSu = university === 'SU';
+    const res = await fetch(`${BACKEND_URL}/api/${isSu ? 'su' : 'tu'}/grades`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fnum, egn, deistvie: '1' })
+      headers: {
+        'Content-Type': isSu
+          ? 'application/x-www-form-urlencoded'
+          : 'application/json'
+      },
+      body: isSu
+        ? new URLSearchParams({ username: user1, password: user2 }).toString()
+        : JSON.stringify({ fnum: user1, egn: user2, deistvie: '1' })
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
 
     const html = await res.text();
-    // Latin o or Cyrillic о, then "ценк", then а or и (same pattern Android counts)
-    const count = (html.match(/[o\u043E]\u0446\u0435\u043D\u043A[\u0430\u0438]/gi) || []).length;
+    if (html.includes('INVALID_CREDENTIALS')) throw new Error('INVALID_CREDENTIALS');
+
+    const count = countGrades(html, university);
     const last = await num('last_count', -1);
     await idbSet('last_count', String(count));
 
@@ -130,10 +147,11 @@ async function runGradeCheck(jobId) {
 
     if (count > last) {
       const diff = count - last;
+      const source = isSu ? 'СУСИ' : 'e-university';
       await notify('🎓 Нова оценка!', {
         body: diff === 1
-          ? 'Получихте нова оценка в e-university!'
-          : `Получихте ${diff} нови оценки в e-university!`,
+          ? `Получихте нова оценка в ${source}!`
+          : `Получихте ${diff} нови оценки в ${source}!`,
         icon: '/icons/Icon-192.png',
         badge: '/icons/Icon-192.png',
         tag: 'unigrades-new-grade',
@@ -157,13 +175,18 @@ async function runGradeCheck(jobId) {
   }
 }
 
-messaging.onBackgroundMessage(async (payload) => {
-  const data = payload.data || {};
-  if (data.type === 'check_grades') {
+self.addEventListener('push', (event) => {
+  let p = {};
+  try { p = event.data ? event.data.json() : {}; } catch (_) {}
+  const data = p.data || p;
+
+  if (data.type !== 'check_grades') return;
+
+  event.waitUntil((async () => {
     shown = false;
     await runGradeCheck(data.jobId);
     if (!shown) await quietNotice();
-  }
+  })());
 });
 
 self.addEventListener('notificationclick', (event) => {

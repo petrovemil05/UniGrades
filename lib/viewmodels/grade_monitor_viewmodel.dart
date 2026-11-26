@@ -51,14 +51,18 @@ class GradeMonitorViewModel extends ChangeNotifier {
 
   Future<void> _syncWebWorkerData(SharedPreferences prefs) async {
     final university = prefs.getString('university') ?? 'TU';
-    if (university != 'TU') return;
+    final key1 = university == 'TU' ? 'fnum' : 'username';
+    final key2 = university == 'TU' ? 'egn' : 'password';
 
-    final fnum = prefs.getString('fnum') ?? '';
-    final egn = prefs.getString('egn') ?? '';
-    if (fnum.isNotEmpty && egn.isNotEmpty) {
-      await WebCredentialsStore.save(fnum: fnum, egn: egn);
+    final user1 = prefs.getString(key1) ?? '';
+    final user2 = prefs.getString(key2) ?? '';
+
+    // The worker reads both TU and SU credentials from the same two slots.
+    if (user1.isNotEmpty && user2.isNotEmpty) {
+      await WebCredentialsStore.save(fnum: user1, egn: user2);
     }
 
+    await WebCredentialsStore.saveValue('university', university);
     await WebCredentialsStore.saveValue(
       'interval',
       (prefs.getInt(GradeMonitorService.prefIntervalKey) ?? 30).toString(),

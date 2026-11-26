@@ -151,6 +151,24 @@ class SuApiService {
       html.contains('txtUserName') && html.contains('txtPassword');
 
   Future<String> getHtmlAsync(String username, String password) async {
+    if (kIsWeb) {
+      try {
+        final backendRes = await client.post(
+          Uri.parse('http://localhost:3000/api/su/grades'),
+          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+          body: {
+            'username': username,
+            'password': password,
+          },
+        );
+        if (backendRes.statusCode == 200 &&
+            backendRes.body.isNotEmpty &&
+            !backendRes.body.contains('INVALID_CREDENTIALS')) {
+          return backendRes.body;
+        }
+      } catch (_) {}
+    }
+
     const loginUrl = 'https://susi.uni-sofia.bg/ISSU/forms/Login.aspx';
     const examsUrl =
         'https://susi.uni-sofia.bg/ISSU/forms/students/ReportExams.aspx';

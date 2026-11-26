@@ -5,6 +5,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'grade_monitor_service.dart';
+import 'web_message_listener_factory/web_message_listener_factory.dart';
 
 @pragma('vm:entry-point')
 Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -19,6 +20,50 @@ class FcmService {
 
   static Future init() async {
     try {
+      if (kIsWeb) {
+        final messaging = FirebaseMessaging.instance;
+
+        final settings = await messaging.requestPermission(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+
+        debugPrint(
+          'Notification permission: ${settings.authorizationStatus}',
+        );
+
+        if (settings.authorizationStatus != AuthorizationStatus.authorized) {
+          return;
+        }
+
+        final token = await messaging.getToken(
+          vapidKey: 'BLGIb01So6eXzcW0UFYYjOH8s8NVQwzDkTLgK6-Nkz5qlSUJJXAySqa-8lx1zfMN628Txi8wBHivOxG3BXklAl4',
+        );
+
+        debugPrint('Web FCM token: $token');
+
+        if (token != null) {
+          await _sendRegistration(token);
+        }
+
+        messaging.onTokenRefresh.listen((newToken) async {
+          await _sendRegistration(newToken);
+        });
+
+        setupWebMessageListener((jobId, data) async {
+          debugPrint('Received web background check trigger: $jobId');
+          await handleCheckGradesMessage(RemoteMessage(
+            data: data.map((key, value) => MapEntry(key, value.toString())),
+          ));
+        });
+
+        FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
+          await handleCheckGradesMessage(message);
+        });
+
+        return;
+      }
       if (!kIsWeb) {
         FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
@@ -186,6 +231,15 @@ class FcmService {
   }
 
   static Future _sendRegistration(String token) async {
+    final now = DateTime.now().toUtc();
+    final formattedDate = "${now.year.toString().padLeft(4, '0')}-"
+        "${now.month.toString().padLeft(2, '0')}-"
+        "${now.day.toString().padLeft(2, '0')} "
+        "${now.hour.toString().padLeft(2, '0')}:"
+        "${now.minute.toString().padLeft(2, '0')}:"
+        "${now.second.toString().padLeft(2, '0')}."
+        "${now.millisecond.toString().padLeft(3, '0')}";
+
     try {
       await http.post(
         Uri.parse('$_serverUrl/register'),
@@ -193,6 +247,8 @@ class FcmService {
         body: jsonEncode({
           'fcmToken': token,
           'platform': kIsWeb ? 'web' : 'android',
+          'registeredAt': formattedDate,
+          'registered_at': formattedDate,
         }),
       );
     } catch (_) {}

@@ -17,11 +17,15 @@ import 'package:unigrades/ui/widgets/average_badge.dart';
 import 'package:unigrades/ui/widgets/grades_list.dart';
 import 'package:unigrades/ui/widgets/grade_actions.dart';
 import 'package:unigrades/ui/tu_logged_in_webview_page.dart';
+import '../services/url_launcher_factory/url_launcher_factory.dart';
 import '../models/average_result.dart';
 import '../services/grade_monitor_service.dart';
 import '../services/fcm_service.dart';
+import '../services/web_credentials_store.dart';
 import '../viewmodels/grade_monitor_viewmodel.dart';
 import 'package:provider/provider.dart';
+import 'package:unigrades/services/web_notification_factory/web_notification_factory.dart';
+import 'package:unigrades/services/web_grade_change_detector.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -151,9 +155,20 @@ class _MainPageState extends State<MainPage> {
     await prefs.setString(key1, fnum);
     await prefs.setString(key2, egn);
 
+    if (kIsWeb) {
+      await WebCredentialsStore.save(
+        fnum: fnum,
+        egn: egn,
+      );
+    }
+
     setState(() {
       _isLoggedIn = true;
     });
+
+    if (kIsWeb) {
+      await requestWebNotificationPermission();
+    }
 
     await _loadGrades();
   }
@@ -205,15 +220,11 @@ class _MainPageState extends State<MainPage> {
     setState(() { _isLoading = true; _isPulling = pulling; });
     try {
       final html   = await _api.getHtmlAsync(_user1Controller.text, _user2Controller.text);
-      print('HTML LENGTH: ${html.length}');
-      print('HAS ОЦЕНКА: ${html.toLowerCase().contains('оценк')}');
-      print('ОЦЕНКА COUNT: ${RegExp('оценк', caseSensitive: false).allMatches(html).length}');
-
-      print('HAS SUBJECT SPAN: ${RegExp(r'<span[^>]*>\s*<b>', caseSensitive: false).hasMatch(html)}');
-
-      print(html);
-
       final result = _parser.parse(html) as List<GradeItem>;
+
+      if (kIsWeb) {
+        await WebGradeChangeDetector.checkForNewGrades(result);
+      }
 
       setState(() {
         _grades        = result;
@@ -241,6 +252,16 @@ class _MainPageState extends State<MainPage> {
     final egn = _user2Controller.text.trim();
     if (fnum.isEmpty || egn.isEmpty) return;
     if (!mounted) return;
+    if (kIsWeb) {
+      openPostFormInNewTab(
+        'https://e-university.tu-sofia.bg/ETUS/studenti/index.php',
+        {
+          'fnum': fnum,
+          'egn': egn,
+        },
+      );
+      return;
+    }
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => TuLoggedInWebViewPage(fnum: fnum, egn: egn),

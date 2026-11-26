@@ -54,6 +54,31 @@
     <div class="spinner"></div>
     <div style="font-size: 16px; font-weight: 500;">UniGrades</div>
   </div>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      });
+    }
+  </script>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDDFjJ9QG8uikqozLwP7RzPg66g32rOsXo",
+      authDomain: "udes-54aad.firebaseapp.com",
+      projectId: "udes-54aad",
+      storageBucket: "udes-54aad.firebasestorage.app",
+      messagingSenderId: "1047197774233",
+      appId: "1:1047197774233:web:ce95558cb3615bfdb6a308"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+  </script>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

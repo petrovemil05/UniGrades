@@ -158,12 +158,16 @@ class _TuLoggedInWebViewPageState extends State<TuLoggedInWebViewPage> {
                         ),
                       ),
                       onPressed: () {
-                        openExternalUrl(
+                        openPostFormInNewTab(
                           'https://e-university.tu-sofia.bg/ETUS/studenti/index.php',
+                          {
+                            'fnum': widget.fnum,
+                            'egn': widget.egn,
+                          },
                         );
                       },
                       icon: const Icon(Icons.launch),
-                      label: const Text('Отвори портала'),
+                      label: const Text('Отвори портала (с вход)'),
                     ),
                   ],
                 ),

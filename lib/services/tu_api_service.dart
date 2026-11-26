@@ -132,39 +132,7 @@ class TuApiService {
     }
   }
 
-  Future<String> _getHtmlFromBackend({
-    required String fnum,
-    required String egn,
-    required String deistvie,
-  }) async {
-    final client = http.Client();
 
-    try {
-      final login = await client.post(
-        Uri.parse('$webApiBaseUrl/api/tu/grades'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'fnum': fnum, 'egn': egn}),
-      );
-
-      if (login.statusCode != 200) {
-        throw Exception('Login failed');
-      }
-
-      final grades = await client.post(
-        Uri.parse('$webApiBaseUrl/api/tu/grades'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'deistvie': deistvie}),
-      );
-
-      if (grades.statusCode != 200) {
-        throw Exception('Could not load grades');
-      }
-
-      return grades.body;
-    } finally {
-      client.close();
-    }
-  }
 
 
 

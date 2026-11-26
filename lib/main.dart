@@ -20,6 +20,20 @@ void main() async {
     }
   }
 
+  if (kIsWeb) {
+    await Firebase.initializeApp(
+      options: const FirebaseOptions(
+        apiKey: 'AIzaSyDDFjJ9QG8uikqozLwP7RzPg66g32rOsXo',
+        authDomain: 'udes-54aad.firebaseapp.com',
+        projectId: 'udes-54aad',
+        storageBucket: 'udes-54aad.firebasestorage.app',
+        messagingSenderId: '1047197774233',
+        appId: '1:1047197774233:web:ce95558cb3615bfdb6a308',
+      ),
+    );
+  }
+
+
   runApp(
     ChangeNotifierProvider(
       create: (_) => GradeMonitorViewModel(),

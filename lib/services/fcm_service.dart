@@ -49,7 +49,6 @@ class FcmService {
         }
 
         final token = await messaging.getToken(vapidKey: _webVapidKey);
-        debugPrint('Web FCM token: $token');
 
         if (token != null) {
           await _saveToken(token);
@@ -162,7 +161,6 @@ class FcmService {
 
       await _saveToken(token);
 
-      debugPrint('FCM Token: $token');
       await _sendRegistration(token);
     } catch (e) {
       debugPrint('FcmService register error: $e');

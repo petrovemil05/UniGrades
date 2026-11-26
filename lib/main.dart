@@ -13,7 +13,6 @@ void main() async {
     try {
       await Firebase.initializeApp();
       final token = await FirebaseMessaging.instance.getToken();
-      debugPrint('FCM Token: $token');
       await FcmService.init();
     } catch (e) {
       debugPrint('Initialization error: $e');

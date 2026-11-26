@@ -14,7 +14,7 @@ firebase.initializeApp({
 firebase.messaging();
 
 // Same value as TuApiService.webApiBaseUrl. Must be public HTTPS in production.
-const BACKEND_URL = 'http://localhost:3000';
+const BACKEND_URL = 'https://unigrades.bgsrv.eu';
 const FCM_SERVER = 'https://unigrades.bgsrv.eu';
 
 function openDb() {

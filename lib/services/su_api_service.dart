@@ -4,7 +4,7 @@ import 'http_client_factory/http_client_factory.dart';
 
 class SuApiService {
   // Keep this identical to TuApiService.webApiBaseUrl.
-  static const String _webBackendUrl = 'http://localhost:3000';
+  static const String _webBackendUrl = 'https://unigrades.bgsrv.eu';
 
   final http.Client client = createHttpClient();
 

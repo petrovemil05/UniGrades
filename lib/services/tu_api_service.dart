@@ -6,7 +6,7 @@ import 'dart:convert';
 class TuApiService {
   final http.Client client = createHttpClient();
   final List<String> _cookies = [];
-  static const String webApiBaseUrl = 'http://localhost:3000';
+  static const String webApiBaseUrl = 'https://unigrades.bgsrv.eu';
 
   List<String> get cookies => List.unmodifiable(_cookies);
 

@@ -208,5 +208,5 @@ app.post('/api/su/grades', async (req, res) => {
 });
 
 app.listen(process.env.PORT || 3000, () => {
-  console.log('UniGrades backend running on http://localhost:3000');
+  console.log('UniGrades backend running on https://unigrades.bgsrv.eu');
 });

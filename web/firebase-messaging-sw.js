@@ -118,12 +118,12 @@ async function runGradeCheck(jobId) {
 
     if (last === -1) {
       if (mode === 'all_notifications') {
-        await notify(('✅ Активно следене', {
+        await notify('✅ Активно следене', {
           body: `Първа проверка | Оценки: ${count}`,
           icon: '/icons/Icon-192.png',
           badge: '/icons/Icon-192.png',
           tag: 'unigrades-status'
-        }));
+        });
       }
       return ack(jobId, token, 'initialized', 'first_check');
     }

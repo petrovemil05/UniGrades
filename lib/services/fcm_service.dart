@@ -21,6 +21,7 @@ class FcmService {
 
   static final _localNotif = FlutterLocalNotificationsPlugin();
   static bool _webListenersAttached = false;
+  static String? _lastRegisteredToken;
 
   static Future _saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
@@ -246,6 +247,10 @@ class FcmService {
   }
 
   static Future _sendRegistration(String token) async {
+    // Skip if this exact token was already sent (or is being sent) in this session.
+    if (_lastRegisteredToken == token) return;
+    _lastRegisteredToken = token;
+
     final now = DateTime.now().toUtc();
     final formattedDate = "${now.year.toString().padLeft(4, '0')}-"
         "${now.month.toString().padLeft(2, '0')}-"
@@ -256,7 +261,7 @@ class FcmService {
         "${now.millisecond.toString().padLeft(3, '0')}";
 
     try {
-      await http.post(
+      final response = await http.post(
         Uri.parse('$_serverUrl/register'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -266,7 +271,14 @@ class FcmService {
           'registered_at': formattedDate,
         }),
       );
-    } catch (_) {}
+
+      // Allow a retry later if the server rejected it.
+      if (response.statusCode >= 400) {
+        _lastRegisteredToken = null;
+      }
+    } catch (_) {
+      _lastRegisteredToken = null;
+    }
   }
 
   static Future _sendAck({
@@ -290,6 +302,7 @@ class FcmService {
   }
 
   static Future unregister() async {
+    _lastRegisteredToken = null;
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(_prefFcmTokenKey);
 

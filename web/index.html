@@ -8,13 +8,11 @@
   <meta name="description" content="Следене на оценки за ТУ и СУ">
   <meta name="theme-color" content="#121212">
 
-  <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="UniGrades">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
-  <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
   <title>UniGrades</title>
@@ -31,9 +29,7 @@
       height: 100vh;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
-    .loading-container {
-      text-align: center;
-    }
+    .loading-container { text-align: center; }
     .spinner {
       width: 40px;
       height: 40px;
@@ -50,35 +46,25 @@
   </style>
 </head>
 <body>
-  <div class="loading-container">
-    <div class="spinner"></div>
-    <div style="font-size: 16px; font-weight: 500;">UniGrades</div>
-  </div>
+<div class="loading-container">
+  <div class="spinner"></div>
+  <div style="font-size: 16px; font-weight: 500;">UniGrades</div>
+</div>
 
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/firebase-messaging-sw.js');
-      });
-    }
-  </script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
+<script>
+  firebase.initializeApp({
+    apiKey: "AIzaSyDDFjJ9QG8uikqozLwP7RzPg66g32rOsXo",
+    authDomain: "udes-54aad.firebaseapp.com",
+    projectId: "udes-54aad",
+    storageBucket: "udes-54aad.firebasestorage.app",
+    messagingSenderId: "1047197774233",
+    appId: "1:1047197774233:web:ce95558cb3615bfdb6a308"
+  });
+</script>
 
-  <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyDDFjJ9QG8uikqozLwP7RzPg66g32rOsXo",
-      authDomain: "udes-54aad.firebaseapp.com",
-      projectId: "udes-54aad",
-      storageBucket: "udes-54aad.firebasestorage.app",
-      messagingSenderId: "1047197774233",
-      appId: "1:1047197774233:web:ce95558cb3615bfdb6a308"
-    };
-
-    firebase.initializeApp(firebaseConfig);
-  </script>
-
-  <script src="flutter_bootstrap.js" async></script>
+<script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

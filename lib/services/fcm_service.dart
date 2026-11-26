@@ -5,6 +5,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'grade_monitor_service.dart';
+import 'web_credentials_store.dart';
 import 'web_message_listener_factory/web_message_listener_factory.dart';
 
 @pragma('vm:entry-point')
@@ -15,8 +16,19 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 class FcmService {
   static const String _serverUrl = 'https://unigrades.bgsrv.eu';
   static const String _prefFcmTokenKey = 'fcm_token';
+  static const String _webVapidKey =
+      'BLGIb01So6eXzcW0UFYYjOH8s8NVQwzDkTLgK6-Nkz5qlSUJJXAySqa-8lx1zfMN628Txi8wBHivOxG3BXklAl4';
 
   static final _localNotif = FlutterLocalNotificationsPlugin();
+  static bool _webListenersAttached = false;
+
+  static Future _saveToken(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_prefFcmTokenKey, token);
+    if (kIsWeb) {
+      await WebCredentialsStore.saveValue('fcm_token', token);
+    }
+  }
 
   static Future init() async {
     try {
@@ -29,25 +41,25 @@ class FcmService {
           sound: true,
         );
 
-        debugPrint(
-          'Notification permission: ${settings.authorizationStatus}',
-        );
+        debugPrint('Notification permission: ${settings.authorizationStatus}');
 
         if (settings.authorizationStatus != AuthorizationStatus.authorized) {
           return;
         }
 
-        final token = await messaging.getToken(
-          vapidKey: 'BLGIb01So6eXzcW0UFYYjOH8s8NVQwzDkTLgK6-Nkz5qlSUJJXAySqa-8lx1zfMN628Txi8wBHivOxG3BXklAl4',
-        );
-
+        final token = await messaging.getToken(vapidKey: _webVapidKey);
         debugPrint('Web FCM token: $token');
 
         if (token != null) {
+          await _saveToken(token);
           await _sendRegistration(token);
         }
 
+        if (_webListenersAttached) return;
+        _webListenersAttached = true;
+
         messaging.onTokenRefresh.listen((newToken) async {
+          await _saveToken(newToken);
           await _sendRegistration(newToken);
         });
 
@@ -58,12 +70,14 @@ class FcmService {
           ));
         });
 
+        // Runs only while the page is focused; the service worker covers the rest.
         FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
           await handleCheckGradesMessage(message);
         });
 
         return;
       }
+
       if (!kIsWeb) {
         FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
@@ -76,7 +90,7 @@ class FcmService {
 
         await _localNotif
             .resolvePlatformSpecificImplementation<
-                AndroidFlutterLocalNotificationsPlugin>()
+            AndroidFlutterLocalNotificationsPlugin>()
             ?.createNotificationChannel(channel);
 
         await _localNotif.initialize(
@@ -140,11 +154,12 @@ class FcmService {
 
   static Future register() async {
     try {
-      final token = await FirebaseMessaging.instance.getToken();
+      final token = kIsWeb
+          ? await FirebaseMessaging.instance.getToken(vapidKey: _webVapidKey)
+          : await FirebaseMessaging.instance.getToken();
       if (token == null) return;
 
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_prefFcmTokenKey, token);
+      await _saveToken(token);
 
       debugPrint('FCM Token: $token');
       await _sendRegistration(token);
@@ -277,6 +292,13 @@ class FcmService {
   static Future unregister() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(_prefFcmTokenKey);
+
+    if (kIsWeb) {
+      try {
+        await WebCredentialsStore.clear();
+      } catch (_) {}
+    }
+
     if (token == null) return;
 
     try {

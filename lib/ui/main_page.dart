@@ -71,6 +71,9 @@ class _MainPageState extends State<MainPage> {
   Future<void> _saveInterval(int minutes) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(GradeMonitorService.prefIntervalKey, minutes);
+    if (kIsWeb) {
+      await WebCredentialsStore.saveValue('interval', minutes.toString());
+    }
     setState(() => _intervalMinutes = minutes);
   }
 
@@ -175,6 +178,12 @@ class _MainPageState extends State<MainPage> {
 
   Future<void> _onLogoutClicked() async {
     await FcmService.unregister();
+
+    if (kIsWeb) {
+      try {
+        await WebCredentialsStore.clear();
+      } catch (_) {}
+    }
 
     if (!kIsWeb) {
       try {

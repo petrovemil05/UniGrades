@@ -9,52 +9,28 @@ class WebCredentialsStore {
     required String fnum,
     required String egn,
   }) async {
+    await saveValue('fnum', fnum);
+    await saveValue('egn', egn);
+  }
+
+  static Future<void> saveValue(String key, String value) async {
     final db = await _openDatabase();
-
-    final transaction = db.transaction(
-      _storeName,
-      idbModeReadWrite,
-    );
-
+    final transaction = db.transaction(_storeName, idbModeReadWrite);
     final store = transaction.objectStore(_storeName);
-
-    await store.put(fnum, 'fnum');
-    await store.put(egn, 'egn');
-
+    await store.put(value, key);
     await transaction.completed;
   }
 
   static Future<String?> read(String key) async {
     final db = await _openDatabase();
-
-    final transaction = db.transaction(
-      _storeName,
-      idbModeReadOnly,
-    );
-
+    final transaction = db.transaction(_storeName, idbModeReadOnly);
     final store = transaction.objectStore(_storeName);
-
     final value = await store.getObject(key) as String?;
-
     await transaction.completed;
-
     return value;
   }
 
-  static Future<void> saveLastGrades(String grades) async {
-    final db = await _openDatabase();
-
-    final transaction = db.transaction(
-      _storeName,
-      idbModeReadWrite,
-    );
-
-    final store = transaction.objectStore(_storeName);
-
-    await store.put(grades, 'last_grades');
-
-    await transaction.completed;
-  }
+  static Future<void> saveLastGrades(String grades) => saveValue('last_grades', grades);
 
   static Future<String> readLastGrades() async {
     final value = await read('last_grades');
@@ -63,16 +39,9 @@ class WebCredentialsStore {
 
   static Future<void> clear() async {
     final db = await _openDatabase();
-
-    final transaction = db.transaction(
-      _storeName,
-      idbModeReadWrite,
-    );
-
+    final transaction = db.transaction(_storeName, idbModeReadWrite);
     final store = transaction.objectStore(_storeName);
-
     await store.clear();
-
     await transaction.completed;
   }
 
@@ -82,7 +51,6 @@ class WebCredentialsStore {
       version: 1,
       onUpgradeNeeded: (event) {
         final db = event.database;
-
         if (!db.objectStoreNames.contains(_storeName)) {
           db.createObjectStore(_storeName);
         }

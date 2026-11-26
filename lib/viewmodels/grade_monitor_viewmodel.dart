@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/fcm_service.dart';
 import '../services/grade_monitor_service.dart';
 import '../services/notification_service.dart';
+import '../services/web_credentials_store.dart';
 
 class GradeMonitorViewModel extends ChangeNotifier {
   static const String _prefMonitoringKey = 'is_monitoring';
@@ -16,7 +17,6 @@ class GradeMonitorViewModel extends ChangeNotifier {
 
   bool _isMonitoring = false;
   String _status = statusOff;
-  Timer? _webTimer;
 
   bool get isMonitoring => _isMonitoring;
   String get status => _status;
@@ -31,7 +31,7 @@ class GradeMonitorViewModel extends ChangeNotifier {
     _isMonitoring = prefs.getBool(_prefMonitoringKey) ?? false;
     _status = prefs.getString(_prefStatusKey) ?? (_isMonitoring ? statusTracking : statusOff);
     if (kIsWeb && _isMonitoring) {
-      _startWebTimer();
+      FcmService.init();
     }
     notifyListeners();
   }
@@ -46,26 +46,28 @@ class GradeMonitorViewModel extends ChangeNotifier {
   void setMonitoring(bool value) {
     _isMonitoring = value;
     _status = value ? statusTracking : statusOff;
-    if (kIsWeb) {
-      if (value) {
-        _startWebTimer();
-      } else {
-        _webTimer?.cancel();
-      }
-    }
     notifyListeners();
   }
 
-  void _startWebTimer() async {
-    _webTimer?.cancel();
-    final prefs = await SharedPreferences.getInstance();
-    final interval = prefs.getInt(GradeMonitorService.prefIntervalKey) ?? 30;
-    _webTimer = Timer.periodic(Duration(minutes: interval), (_) async {
-      if (!_isMonitoring) return;
-      try {
-        await FcmService.runCheckNow();
-      } catch (_) {}
-    });
+  Future<void> _syncWebWorkerData(SharedPreferences prefs) async {
+    final university = prefs.getString('university') ?? 'TU';
+    if (university != 'TU') return;
+
+    final fnum = prefs.getString('fnum') ?? '';
+    final egn = prefs.getString('egn') ?? '';
+    if (fnum.isNotEmpty && egn.isNotEmpty) {
+      await WebCredentialsStore.save(fnum: fnum, egn: egn);
+    }
+
+    await WebCredentialsStore.saveValue(
+      'interval',
+      (prefs.getInt(GradeMonitorService.prefIntervalKey) ?? 30).toString(),
+    );
+    await WebCredentialsStore.saveValue(
+      'notification_mode',
+      prefs.getString(GradeMonitorService.prefNotificationModeKey) ??
+          GradeMonitorService.notificationModeAll,
+    );
   }
 
   Future<void> toggle({String? notificationMode}) async {
@@ -73,7 +75,6 @@ class GradeMonitorViewModel extends ChangeNotifier {
 
     if (_isMonitoring) {
       _isMonitoring = false;
-      _webTimer?.cancel();
       await _setStatus(statusOff);
       await FcmService.unregister();
       await NotificationService.cancel(GradeMonitorService.persistentNotifId);
@@ -89,9 +90,12 @@ class GradeMonitorViewModel extends ChangeNotifier {
     await _setStatus(statusChecking);
     await FcmService.register();
     await prefs.setBool(_prefMonitoringKey, true);
+
     if (kIsWeb) {
-      _startWebTimer();
+      await _syncWebWorkerData(prefs);
+      await FcmService.init();
     }
+
     try {
       await FcmService.runCheckNow();
       await _setStatus(statusTracking);
@@ -99,11 +103,5 @@ class GradeMonitorViewModel extends ChangeNotifier {
       await _setStatus(statusError);
     }
     notifyListeners();
-  }
-
-  @override
-  void dispose() {
-    _webTimer?.cancel();
-    super.dispose();
   }
 }
